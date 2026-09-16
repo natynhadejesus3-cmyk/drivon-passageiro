@@ -57,6 +57,16 @@ export type PassengerProfile = {
   updated_at: string;
 };
 
+/** Token FCM do aparelho — o backend (Edge Function) lê via service_role. */
+export type PassengerPushToken = {
+  id: string;
+  passenger_id: string;
+  device_id: string;
+  token: string;
+  user_agent: string | null;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -77,6 +87,12 @@ export type Database = {
         Row: PassengerProfile;
         Insert: Partial<PassengerProfile> & Pick<PassengerProfile, "id">;
         Update: Partial<PassengerProfile>;
+        Relationships: [];
+      };
+      passenger_push_tokens: {
+        Row: PassengerPushToken;
+        Insert: Partial<PassengerPushToken> & Pick<PassengerPushToken, "passenger_id" | "device_id" | "token">;
+        Update: Partial<PassengerPushToken>;
         Relationships: [];
       };
     };

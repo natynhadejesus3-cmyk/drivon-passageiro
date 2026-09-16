@@ -161,6 +161,27 @@ export async function upsertPassengerProfile(
   if (error) throw error;
 }
 
+export async function saveFcmToken(
+  userId: string,
+  deviceId: string,
+  token: string,
+  userAgent?: string,
+): Promise<void> {
+  // o mesmo token não pode pertencer a dois aparelhos
+  await supabase.from("passenger_push_tokens").delete().eq("token", token).neq("device_id", deviceId);
+  const { error } = await supabase.from("passenger_push_tokens").upsert(
+    {
+      passenger_id: userId,
+      device_id: deviceId,
+      token,
+      user_agent: userAgent ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "device_id" },
+  );
+  if (error) throw error;
+}
+
 export async function setPassengerPresence(userId: string, online: boolean): Promise<void> {
   const { error } = await supabase
     .from("passenger_profiles")

@@ -1,7 +1,9 @@
-import { Route, Routes, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { usePresence } from "@/lib/use-presence";
+import { initNativePush } from "@/lib/notifications/native-push";
 import { Agenda } from "./pages/Agenda";
 import { Auth } from "./pages/Auth";
 import { Chat } from "./pages/Chat";
@@ -11,11 +13,17 @@ import { Profile } from "./pages/Profile";
 
 function AppRoutes() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { session, loading } = useAuth();
   const hideNav =
     location.pathname.startsWith("/chat/") || location.pathname === "/pair" || location.pathname === "/profile";
 
   usePresence();
+
+  useEffect(() => {
+    if (session?.user.id) void initNativePush(session.user.id, navigate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
 
   if (loading) return null;
 
