@@ -1,0 +1,308 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-elevated: var(--card-elevated);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-hairline: var(--hairline);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter Variable", "Inter", "Geist", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 1rem;
+  --background: #0B0B0B;
+  --foreground: #FFFFFF;
+  --card: #141414;
+  --card-foreground: #FFFFFF;
+  --card-elevated: #181818;
+  --popover: #141414;
+  --popover-foreground: #FFFFFF;
+  --primary: #FF6A00;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: rgba(255, 106, 0, 0.12);
+  --secondary: #1C1C1C;
+  --secondary-foreground: #FFFFFF;
+  --muted: #1C1C1C;
+  --muted-foreground: #A8A8A8;
+  --text-disabled: #6E6E6E;
+  --accent: #1C1C1C;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FF3B30;
+  --destructive-foreground: #FFFFFF;
+  --success: #00D26A;
+  --warning: #FFC107;
+  --border: #2A2A2A;
+  --hairline: #2A2A2A;
+  --input: #1C1C1C;
+  --ring: #FF6A00;
+}
+
+.dark { color-scheme: dark; }
+
+@layer base {
+  *, *::before, *::after {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  html, body, #root {
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    height: 100%;
+  }
+  * { border-color: var(--color-border); }
+  body {
+    margin: 0;
+    font-family: var(--font-display);
+    font-feature-settings: "cv11","ss01","ss03","cv02";
+    font-optical-sizing: auto;
+    letter-spacing: -0.011em;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--color-foreground);
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    font-weight: 700;
+  }
+  h1 { font-size: 30px; }
+  h2 { font-size: 24px; }
+  h3 { font-size: 18px; letter-spacing: -0.018em; }
+  h4 { font-size: 16px; font-weight: 600; letter-spacing: -0.014em; }
+  p  { line-height: 1.55; }
+  button, input, select, textarea { font-family: inherit; letter-spacing: -0.005em; }
+}
+
+:root {
+  --bottom-nav-h: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-nav-space: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
+}
+
+@utility phone-shell {
+  max-width: 480px;
+  margin-inline: auto;
+  min-height: 100%;
+  position: relative;
+  background: var(--color-background);
+}
+
+@utility section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+@utility card-elevated {
+  background: var(--color-card-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+}
+
+@utility list-card {
+  background: var(--color-card-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 1.25rem;
+  overflow: hidden;
+}
+
+@utility btn-primary {
+  height: 3.25rem;
+  border-radius: 0.75rem;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  font-size: 15px;
+  box-shadow: 0 10px 28px -14px rgba(255, 106, 0, 0.55);
+}
+
+@utility btn-outline {
+  height: 3.25rem;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  font-size: 15px;
+}
+
+@utility btn-outline-neutral {
+  height: 3.25rem;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--color-foreground);
+  border: 1.5px solid var(--color-hairline);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  font-size: 15px;
+}
+
+/* ---------- Typography scale ---------- */
+@utility text-display {
+  font-size: 32px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.1;
+}
+@utility text-title {
+  font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2;
+}
+@utility text-subtitle {
+  font-size: 16px; font-weight: 500; letter-spacing: -0.011em; line-height: 1.35;
+  color: var(--color-muted-foreground);
+}
+@utility text-body {
+  font-size: 15px; font-weight: 400; letter-spacing: -0.005em; line-height: 1.5;
+}
+@utility text-label {
+  font-size: 13px; font-weight: 500; letter-spacing: 0; line-height: 1.35;
+  color: var(--color-muted-foreground);
+}
+@utility text-nav {
+  font-size: 12px; font-weight: 500; letter-spacing: -0.003em; line-height: 1.2;
+}
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Animations ---------- */
+@keyframes screen-in {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes scan-line {
+  0% { transform: translateY(-100%); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.92); opacity: 0.9; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+@utility screen-anim {
+  animation: screen-in 220ms cubic-bezier(0.22, 0.9, 0.35, 1);
+  will-change: opacity, transform;
+}
+
+/* ---------- QR scanner viewfinder (estilo WhatsApp) ---------- */
+.qr-viewfinder #qr-reader {
+  position: absolute;
+  inset: 0;
+}
+.qr-viewfinder #qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+.qr-frame {
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+.qr-corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--color-primary);
+}
+.qr-corner-tl {
+  top: -3px;
+  left: -3px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 12px;
+}
+.qr-corner-tr {
+  top: -3px;
+  right: -3px;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 12px;
+}
+.qr-corner-bl {
+  bottom: -3px;
+  left: -3px;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 12px;
+}
+.qr-corner-br {
+  bottom: -3px;
+  right: -3px;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 12px;
+}
+.qr-scanline {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-primary) 20%, var(--color-primary) 80%, transparent);
+  box-shadow: 0 0 8px 1px rgba(255, 106, 0, 0.7);
+  animation: scan-line 2.2s ease-in-out infinite;
+}
+
+@layer base {
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled):active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.98);
+  }
+  button, a, [role="button"] {
+    transition: transform 0.15s cubic-bezier(0.22, 0.9, 0.35, 1),
+                background-color 0.2s ease,
+                color 0.2s ease,
+                border-color 0.2s ease,
+                opacity 0.2s ease;
+  }
+}

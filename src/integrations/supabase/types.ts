@@ -1,0 +1,69 @@
+/**
+ * Hand-written slice of the shared Drivon Supabase schema — only the tables
+ * and RPC this app is allowed to touch (see the integration contract). Not
+ * auto-generated (no `supabase gen types` access from this repo, since it
+ * only holds the publishable key), but cross-checked field-for-field against
+ * the driver app's own migrations (comfort-code-cave/supabase/migrations/
+ * 20260915120000_*.sql and 20260915120100_*.sql) and its generated
+ * src/integrations/supabase/types.ts.
+ */
+
+export type SenderRole = "passenger" | "driver";
+
+export type DriverPassengerLink = {
+  id: string;
+  driver_id: string;
+  passenger_id: string;
+  passenger_display_name: string;
+  created_at: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  link_id: string;
+  sender_role: SenderRole;
+  sender_id: string;
+  body: string;
+  is_ride_request: boolean;
+  ride_confirmed: boolean;
+  ride_id: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+export type PairWithDriverResult = {
+  link_id: string;
+  driver_id: string;
+  driver_name: string;
+  already_paired: boolean;
+};
+
+export type Database = {
+  public: {
+    Tables: {
+      driver_passenger_links: {
+        Row: DriverPassengerLink;
+        Insert: Partial<DriverPassengerLink>;
+        Update: Partial<DriverPassengerLink>;
+        Relationships: [];
+      };
+      chat_messages: {
+        Row: ChatMessage;
+        Insert: Omit<ChatMessage, "id" | "created_at" | "ride_confirmed" | "ride_id" | "read_at"> &
+          Partial<Pick<ChatMessage, "ride_confirmed" | "ride_id" | "read_at">>;
+        Update: Partial<Pick<ChatMessage, "read_at">>;
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: {
+      pair_with_driver: {
+        // RETURNS TABLE(...) in Postgres → PostgREST always returns an array of rows.
+        Args: { p_code: string; p_passenger_display_name?: string | null };
+        Returns: PairWithDriverResult[];
+      };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
