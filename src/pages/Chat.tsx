@@ -4,7 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { DriverAvatar } from "../components/DriverAvatar";
 import { useAuth } from "@/lib/auth-context";
-import { useLink, useMessages } from "@/lib/hooks";
+import { formatLastSeen } from "@/lib/format";
+import { useDriverProfile, useLink, useMessages } from "@/lib/hooks";
 import { getCachedDriverName, markRead, sendMessage } from "@/lib/repository";
 import {
   resolveLocationContext,
@@ -31,6 +32,7 @@ export function Chat() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { link, loading: linkLoading } = useLink(linkId);
+  const { profile } = useDriverProfile(link?.driver_id);
   const { messages, refetch } = useMessages(linkId);
   const [text, setText] = useState("");
   const [origin, setOrigin] = useState("");
@@ -100,7 +102,8 @@ export function Chat() {
     );
   }
 
-  const driverName = getCachedDriverName(link.driver_id);
+  const driverName = profile?.full_name || getCachedDriverName(link.driver_id);
+  const driverOnline = profile?.is_online ?? false;
 
   async function submitRideRequest() {
     if (!origin.trim() || !destination.trim() || !user) return;
@@ -140,10 +143,12 @@ export function Chat() {
         <button onClick={() => navigate(-1)} className="rounded-full p-1 text-muted-foreground">
           <ArrowLeft size={20} />
         </button>
-        <DriverAvatar name={driverName} size={40} />
+        <DriverAvatar name={driverName} avatarUrl={profile?.avatar_url} online={driverOnline} size={40} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold leading-tight">{driverName}</p>
-          <p className="truncate text-label">Pareado em {new Date(link.created_at).toLocaleDateString("pt-BR")}</p>
+          <p className="truncate text-label">
+            {driverOnline ? <span className="text-success">Online agora</span> : formatLastSeen(profile?.last_seen_at)}
+          </p>
         </div>
       </header>
 

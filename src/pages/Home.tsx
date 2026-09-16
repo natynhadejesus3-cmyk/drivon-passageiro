@@ -1,13 +1,26 @@
-import { LogOut, QrCode, Unlink } from "lucide-react";
+import { LogOut, QrCode, Unlink, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
 import { DriverAvatar } from "../components/DriverAvatar";
 import { supabase } from "@/integrations/supabase/client";
-import { getCachedDriverName, unlinkDriver } from "@/lib/repository";
-import { useLinks } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth-context";
+import { formatLastSeen } from "@/lib/format";
+import { useDriverProfile, useLinks } from "@/lib/hooks";
+import { getCachedDriverName, getMyPassengerProfile, unlinkDriver } from "@/lib/repository";
+import type { DriverPassengerLink } from "@/integrations/supabase/types";
 
 export function Home() {
   const { links, loading, refetch } = useLinks();
+  const { user } = useAuth();
+  const [myAvatar, setMyAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getMyPassengerProfile(user.id)
+      .then((p) => setMyAvatar(p?.avatar_url ?? null))
+      .catch(() => {});
+  }, [user?.id]);
 
   async function handleUnlink(e: React.MouseEvent, linkId: string) {
     e.preventDefault();
@@ -23,13 +36,26 @@ export function Home() {
         title="Meus motoristas"
         subtitle={links.length > 0 ? `${links.length} cadastrado${links.length > 1 ? "s" : ""}` : undefined}
         right={
-          <button
-            onClick={() => supabase.auth.signOut()}
-            title="Sair"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[color:var(--color-hairline)] bg-card text-muted-foreground"
-          >
-            <LogOut size={18} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              to="/profile"
+              title="Meu perfil"
+              className="grid h-11 w-11 place-items-center overflow-hidden rounded-2xl border border-[color:var(--color-hairline)] bg-card text-muted-foreground"
+            >
+              {myAvatar ? (
+                <img src={myAvatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <User size={18} />
+              )}
+            </Link>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              title="Sair"
+              className="grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--color-hairline)] bg-card text-muted-foreground"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         }
       />
 
@@ -47,28 +73,12 @@ export function Home() {
         {links.length > 0 && (
           <div className="list-card">
             {links.map((link, i) => (
-              <Link
+              <DriverRow
                 key={link.id}
-                to={`/chat/${link.id}`}
-                className={`flex items-center gap-3 p-4 active:bg-card ${
-                  i !== links.length - 1 ? "border-b border-[color:var(--color-hairline)]" : ""
-                }`}
-              >
-                <DriverAvatar name={getCachedDriverName(link.driver_id)} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{getCachedDriverName(link.driver_id)}</p>
-                  <p className="truncate text-label">
-                    Pareado em {new Date(link.created_at).toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-                <button
-                  onClick={(e) => handleUnlink(e, link.id)}
-                  title="Desconectar"
-                  className="shrink-0 rounded-full p-2 text-muted-foreground"
-                >
-                  <Unlink size={16} />
-                </button>
-              </Link>
+                link={link}
+                last={i === links.length - 1}
+                onUnlink={(e) => handleUnlink(e, link.id)}
+              />
             ))}
           </div>
         )}
@@ -86,5 +96,39 @@ export function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+function DriverRow({
+  link,
+  last,
+  onUnlink,
+}: {
+  link: DriverPassengerLink;
+  last: boolean;
+  onUnlink: (e: React.MouseEvent) => void;
+}) {
+  const { profile } = useDriverProfile(link.driver_id);
+  const name = profile?.full_name || getCachedDriverName(link.driver_id);
+  const online = profile?.is_online ?? false;
+
+  return (
+    <Link
+      to={`/chat/${link.id}`}
+      className={`flex items-center gap-3 p-4 active:bg-card ${
+        !last ? "border-b border-[color:var(--color-hairline)]" : ""
+      }`}
+    >
+      <DriverAvatar name={name} avatarUrl={profile?.avatar_url} online={online} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold">{name}</p>
+        <p className="truncate text-label">
+          {online ? <span className="text-success">Online agora</span> : formatLastSeen(profile?.last_seen_at)}
+        </p>
+      </div>
+      <button onClick={onUnlink} title="Desconectar" className="shrink-0 rounded-full p-2 text-muted-foreground">
+        <Unlink size={16} />
+      </button>
+    </Link>
   );
 }

@@ -4,8 +4,8 @@
  * auto-generated (no `supabase gen types` access from this repo, since it
  * only holds the publishable key), but cross-checked field-for-field against
  * the driver app's own migrations (comfort-code-cave/supabase/migrations/
- * 20260915120000_*.sql and 20260915120100_*.sql) and its generated
- * src/integrations/supabase/types.ts.
+ * 20260915120000_*.sql, 20260915120100_*.sql and 20260916090000_*.sql) and
+ * its generated src/integrations/supabase/types.ts.
  */
 
 export type SenderRole = "passenger" | "driver";
@@ -38,6 +38,25 @@ export type PairWithDriverResult = {
   already_paired: boolean;
 };
 
+/** Só os campos públicos do motorista — vem da view driver_public_profile. */
+export type DriverPublicProfile = {
+  driver_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  is_online: boolean;
+  last_seen_at: string | null;
+};
+
+/** Linha própria do passageiro — só ele mesmo lê/escreve (RLS auth.uid() = id). */
+export type PassengerProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  is_online: boolean;
+  last_seen_at: string | null;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -54,8 +73,19 @@ export type Database = {
         Update: Partial<Pick<ChatMessage, "read_at">>;
         Relationships: [];
       };
+      passenger_profiles: {
+        Row: PassengerProfile;
+        Insert: Partial<PassengerProfile> & Pick<PassengerProfile, "id">;
+        Update: Partial<PassengerProfile>;
+        Relationships: [];
+      };
     };
-    Views: Record<string, never>;
+    Views: {
+      driver_public_profile: {
+        Row: DriverPublicProfile;
+        Relationships: [];
+      };
+    };
     Functions: {
       pair_with_driver: {
         // RETURNS TABLE(...) in Postgres → PostgREST always returns an array of rows.

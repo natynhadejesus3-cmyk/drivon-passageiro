@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ChatMessage, DriverPassengerLink } from "@/integrations/supabase/types";
-import { getConfirmedRides, getLink, getLinks, getMessages, subscribeToChat } from "./repository";
+import type { ChatMessage, DriverPassengerLink, DriverPublicProfile } from "@/integrations/supabase/types";
+import { getConfirmedRides, getDriverPublicProfile, getLink, getLinks, getMessages, subscribeToChat } from "./repository";
 
 function useRefetchOnFocus(refetch: () => void) {
   useEffect(() => {
@@ -70,6 +70,34 @@ export function useMessages(linkId: string | undefined) {
   }, [linkId, refetch]);
 
   return { messages, loading, refetch };
+}
+
+/**
+ * Nome/foto/status real do motorista. A view não pode entrar no Realtime do
+ * Postgres (só tabelas base podem), então atualiza por polling — suficiente
+ * pra "online agora" não ficar visivelmente desatualizado numa conversa aberta.
+ */
+export function useDriverProfile(driverId: string | undefined, pollMs = 20_000) {
+  const [profile, setProfile] = useState<DriverPublicProfile | null>(null);
+
+  const refetch = useCallback(() => {
+    if (!driverId) return;
+    getDriverPublicProfile(driverId)
+      .then(setProfile)
+      .catch((e) => console.error("[drivon] getDriverPublicProfile failed", e));
+  }, [driverId]);
+
+  useEffect(refetch, [refetch]);
+
+  useEffect(() => {
+    if (!driverId) return;
+    const id = setInterval(refetch, pollMs);
+    return () => clearInterval(id);
+  }, [driverId, pollMs, refetch]);
+
+  useRefetchOnFocus(refetch);
+
+  return { profile, refetch };
 }
 
 export function useConfirmedRides() {

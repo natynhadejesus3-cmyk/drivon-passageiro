@@ -1,6 +1,12 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import type { ChatMessage, DriverPassengerLink, PairWithDriverResult } from "@/integrations/supabase/types";
+import type {
+  ChatMessage,
+  DriverPassengerLink,
+  DriverPublicProfile,
+  PairWithDriverResult,
+  PassengerProfile,
+} from "@/integrations/supabase/types";
 
 /**
  * driver_passenger_links has no driver display-name column (see integration
@@ -125,6 +131,41 @@ export async function getConfirmedRides(): Promise<ChatMessage[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+/** Nome/foto/status real do motorista — só devolve algo se o pareamento existir de verdade (checado dentro da view). */
+export async function getDriverPublicProfile(driverId: string): Promise<DriverPublicProfile | null> {
+  const { data, error } = await supabase
+    .from("driver_public_profile")
+    .select("full_name, avatar_url, is_online, last_seen_at, driver_id")
+    .eq("driver_id", driverId)
+    .maybeSingle();
+  if (error) throw error;
+  if (data?.full_name) cacheDriverName(driverId, data.full_name);
+  return data;
+}
+
+export async function getMyPassengerProfile(userId: string): Promise<PassengerProfile | null> {
+  const { data, error } = await supabase.from("passenger_profiles").select("*").eq("id", userId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function upsertPassengerProfile(
+  userId: string,
+  patch: Partial<Pick<PassengerProfile, "full_name" | "avatar_url">>,
+): Promise<void> {
+  const { error } = await supabase
+    .from("passenger_profiles")
+    .upsert({ id: userId, ...patch, updated_at: new Date().toISOString() }, { onConflict: "id" });
+  if (error) throw error;
+}
+
+export async function setPassengerPresence(userId: string, online: boolean): Promise<void> {
+  const { error } = await supabase
+    .from("passenger_profiles")
+    .upsert({ id: userId, is_online: online, last_seen_at: new Date().toISOString() }, { onConflict: "id" });
+  if (error) throw error;
 }
 
 export function subscribeToChat(linkId: string, onChange: () => void): RealtimeChannel {
