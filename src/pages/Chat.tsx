@@ -1,4 +1,4 @@
-import { ArrowLeft, Navigation, Send, X } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Navigation, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
@@ -6,11 +6,20 @@ import { DriverAvatar } from "../components/DriverAvatar";
 import { useAuth } from "@/lib/auth-context";
 import { useLink, useMessages } from "@/lib/hooks";
 import { getCachedDriverName, markRead, sendMessage } from "@/lib/repository";
-import { getCurrentPosition } from "@/lib/services/location-service";
+import { resolveLocationContext, type LocationContext } from "@/lib/services/location-service";
 import type { AddressSuggestion } from "@/lib/services/pelias-search-service";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function nowInputValue() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 export function Chat() {
@@ -22,16 +31,26 @@ export function Chat() {
   const [text, setText] = useState("");
   const [destination, setDestination] = useState("");
   const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(null);
-  const [bias, setBias] = useState<{ lat: number; lng: number } | null>(null);
+  const [rideDate, setRideDate] = useState(todayInputValue);
+  const [rideTime, setRideTime] = useState(nowInputValue);
+  const [location, setLocation] = useState<LocationContext | null>(null);
+  const [locating, setLocating] = useState(false);
   const [askingRide, setAskingRide] = useState(false);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   function openRideRequest() {
     setAskingRide(true);
+    setRideDate(todayInputValue());
+    setRideTime(nowInputValue());
     // Melhor ordenação das sugestões por proximidade — se a pessoa negar a
     // permissão, a busca continua funcionando normalmente, só sem viés.
-    if (!bias) getCurrentPosition().then((c) => setBias(c)).catch(() => {});
+    if (!location) {
+      setLocating(true);
+      resolveLocationContext()
+        .then(setLocation)
+        .finally(() => setLocating(false));
+    }
   }
 
   useEffect(() => {
@@ -63,7 +82,11 @@ export function Chat() {
     if (!destination.trim() || !user) return;
     setSending(true);
     try {
-      await sendMessage(linkId, user.id, `Você pode me levar em ${destination.trim()}?`, true);
+      const when = new Date(`${rideDate}T${rideTime}`);
+      const dateLabel = when.toLocaleDateString("pt-BR");
+      const timeLabel = when.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const body = `Você pode me levar em ${destination.trim()} no dia ${dateLabel} às ${timeLabel}?`;
+      await sendMessage(linkId, user.id, body, true);
       setDestination("");
       setSelectedAddress(null);
       setAskingRide(false);
@@ -156,11 +179,45 @@ export function Chat() {
                 if (selectedAddress && v !== selectedAddress.label) setSelectedAddress(null);
               }}
               onSelect={setSelectedAddress}
-              bias={bias}
+              bias={location}
               hasSelection={!!selectedAddress && selectedAddress.label === destination}
               placeholder="Rua, praça, bairro..."
               inputClassName="w-full rounded-xl border border-[color:var(--color-hairline)] bg-background px-4 py-3 text-[15px] outline-none focus:border-primary"
             />
+            {locating && <p className="mt-1.5 text-[11px] text-muted-foreground">Localizando você...</p>}
+            {!locating && !location && (
+              <p className="mt-1.5 text-[11px] text-warning">
+                Sem localização — resultados podem não vir ordenados pela sua proximidade.
+              </p>
+            )}
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="section-label mb-2 flex items-center gap-1.5">
+                  <Calendar size={12} />
+                  Data
+                </span>
+                <input
+                  type="date"
+                  value={rideDate}
+                  min={todayInputValue()}
+                  onChange={(e) => setRideDate(e.target.value)}
+                  className="w-full rounded-xl border border-[color:var(--color-hairline)] bg-background px-3.5 py-3 text-[15px] outline-none focus:border-primary"
+                />
+              </label>
+              <label className="block">
+                <span className="section-label mb-2 flex items-center gap-1.5">
+                  <Clock size={12} />
+                  Horário
+                </span>
+                <input
+                  type="time"
+                  value={rideTime}
+                  onChange={(e) => setRideTime(e.target.value)}
+                  className="w-full rounded-xl border border-[color:var(--color-hairline)] bg-background px-3.5 py-3 text-[15px] outline-none focus:border-primary"
+                />
+              </label>
+            </div>
 
             <button
               onClick={submitRideRequest}

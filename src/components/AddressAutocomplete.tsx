@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, MapPin, Store } from "lucide-react";
-import { GeoSearchService, type AddressSuggestion } from "@/lib/services/pelias-search-service";
+import { GeoSearchService, type AddressSuggestion, type GeoBias } from "@/lib/services/pelias-search-service";
 
 type Props = {
   value: string;
   onChange: (text: string) => void;
   onSelect: (s: AddressSuggestion) => void;
   placeholder?: string;
-  bias?: { lat: number; lng: number } | null;
+  bias?: GeoBias | null;
   inputClassName?: string;
   /** When true, treat the current value as an already-selected address and skip searching. */
   hasSelection?: boolean;

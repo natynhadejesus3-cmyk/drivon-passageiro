@@ -1,14 +1,16 @@
-// GeoSearch — Pelias (principal) → Nominatim POI → Photon (fallback)
+// GeoSearch — Nominatim + Photon (rápido) → Overpass (POI) → BrasilAPI (CEP)
 // Todos os provedores retornam o mesmo formato AddressSuggestion.
 import { AddressSearchService, type AddressSuggestion } from "./address-search-service";
 import { searchOverpass, normalizeText, isCategoryQuery } from "./overpass-poi-service";
 
 export type { AddressSuggestion };
 
+export type GeoBias = { lat: number; lng: number; city?: string; state?: string };
+
 export type GeoSearchOptions = {
   signal?: AbortSignal;
   limit?: number;
-  bias?: { lat: number; lng: number } | null;
+  bias?: GeoBias | null;
   /** Chamado assim que o primeiro lote de sugestões chega (resultado parcial). */
   onPartial?: (items: AddressSuggestion[]) => void;
 };
@@ -25,18 +27,6 @@ function withTimeout(ms: number, signal?: AbortSignal): AbortSignal {
   ctrl.signal.addEventListener("abort", () => clearTimeout(t), { once: true });
   return ctrl.signal;
 }
-
-
-/** Instâncias públicas de Pelias tentadas em ordem. A primeira que responder é memorizada. */
-const PELIAS_ENDPOINTS = [
-  import.meta.env["VITE_PELIAS_URL"] as string | undefined,
-  "https://pelias.cvut.cz/v1",
-  "https://api.geocode.earth/v1",
-].filter(Boolean) as string[];
-
-const PELIAS_KEY = (import.meta.env["VITE_PELIAS_API_KEY"] as string | undefined) ?? "";
-
-let peliasBase: string | null | undefined; // undefined = não testado, null = indisponível
 
 function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -71,60 +61,6 @@ function compose(
     lat,
     lng,
   };
-}
-
-// ---------------------------------------------------------------- Pelias
-async function peliasQuery(base: string, q: string, opts: GeoSearchOptions) {
-  const params = new URLSearchParams({ text: q, size: String(opts.limit ?? 8) });
-  if (PELIAS_KEY) params.set("api_key", PELIAS_KEY);
-  if (opts.bias) {
-    params.set("focus.point.lat", String(opts.bias.lat));
-    params.set("focus.point.lon", String(opts.bias.lng));
-  }
-  const res = await fetch(`${base}/autocomplete?${params}`, {
-    signal: opts.signal,
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) throw new Error(`Pelias HTTP ${res.status}`);
-  const json = await res.json();
-  const feats: any[] = Array.isArray(json?.features) ? json.features : [];
-  return feats
-    .map((f) => {
-      const lng = num(f?.geometry?.coordinates?.[0]);
-      const lat = num(f?.geometry?.coordinates?.[1]);
-      if (lat === null || lng === null) return null;
-      const p = f.properties ?? {};
-      const street = p.street
-        ? `${p.street}${p.housenumber ? ", " + p.housenumber : ""}`
-        : (p.street ?? "");
-      return compose(
-        "pel",
-        p.name ?? "",
-        street,
-        p.locality ?? p.localadmin ?? p.county ?? "",
-        p.region_a ?? p.region ?? "",
-        p.country ?? "",
-        lat,
-        lng,
-      );
-    })
-    .filter((x): x is AddressSuggestion => !!x);
-}
-
-async function searchPelias(q: string, opts: GeoSearchOptions): Promise<AddressSuggestion[]> {
-  if (peliasBase === null) return [];
-  if (peliasBase) return peliasQuery(peliasBase, q, opts);
-  for (const base of PELIAS_ENDPOINTS) {
-    try {
-      const r = await peliasQuery(base, q, opts);
-      peliasBase = base;
-      return r;
-    } catch (e: any) {
-      if (e?.name === "AbortError") throw e;
-    }
-  }
-  peliasBase = null; // nenhuma instância pública respondeu — usa fallbacks
-  return [];
 }
 
 // ------------------------------------------------------------- Nominatim
@@ -166,6 +102,31 @@ async function searchNominatim(
       return compose("nom", r.name ?? "", street, city, a.state ?? "", a.country ?? "", lat, lng);
     })
     .filter((x): x is AddressSuggestion => !!x);
+}
+
+// ------------------------------------------------------------- BrasilAPI (CEP)
+const CEP_RE = /^\d{5}-?\d{3}$/;
+
+/** true quando o texto digitado parece um CEP brasileiro (8 dígitos). */
+function isCepQuery(q: string): boolean {
+  return CEP_RE.test(q.trim());
+}
+
+/** CEP → endereço oficial (fonte dos Correios via BrasilAPI). Sem chave, grátis. */
+async function searchBrasilApiCep(q: string, opts: GeoSearchOptions): Promise<AddressSuggestion[]> {
+  const cep = q.trim().replace("-", "");
+  const res = await fetch(`https://brasilapi.com.br/api/cep/v2/${cep}`, {
+    signal: opts.signal,
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) return [];
+  const j = await res.json();
+  const lat = num(j?.location?.coordinates?.latitude ? parseFloat(j.location.coordinates.latitude) : null);
+  const lng = num(j?.location?.coordinates?.longitude ? parseFloat(j.location.coordinates.longitude) : null);
+  if (lat === null || lng === null) return [];
+  const street = j.street ? `${j.street}${j.neighborhood ? ", " + j.neighborhood : ""}` : (j.neighborhood ?? "");
+  const item = compose("cep", "", street, j.city ?? "", j.state ?? "", "Brasil", lat, lng);
+  return [item];
 }
 
 // ----------------------------------------------------- dedupe / relevância
@@ -218,7 +179,7 @@ function looksLikeSpecificAddress(q: string): boolean {
   return /\d/.test(q) || STREET_HINT_RE.test(q);
 }
 
-function score(it: AddressSuggestion, q: string, bias?: { lat: number; lng: number } | null) {
+function score(it: AddressSuggestion, q: string, bias?: GeoBias | null) {
   const nq = norm(q);
   const name = norm(it.street);
   let s = 0;
@@ -240,12 +201,17 @@ function score(it: AddressSuggestion, q: string, bias?: { lat: number; lng: numb
     s += 120 * Math.exp(-d / 25000);
     if (d > 150000) s -= 60;
     if (d > 600000) s -= 60;
+    // Camada explícita "mesma cidade / mesmo estado" — reforça a hierarquia
+    // pedida (cidade → região → estado → país) além da curva contínua de
+    // distância, que sozinha pode não bastar pra cidades grandes/espalhadas.
+    if (bias.city && it.city && norm(bias.city) === norm(it.city)) s += 200;
+    else if (bias.state && it.state && norm(bias.state) === norm(it.state)) s += 40;
   }
   it.relevanceScore = s;
   return s;
 }
 
-function rank(items: AddressSuggestion[], q: string, bias?: { lat: number; lng: number } | null) {
+function rank(items: AddressSuggestion[], q: string, bias?: GeoBias | null) {
   return [...items].sort((a, b) => score(b, q, bias) - score(a, q, bias));
 }
 
@@ -263,7 +229,7 @@ const CACHE_TTL = 5 * 60_000;
 const CACHE_MAX = 40;
 const cache = new Map<string, CacheEntry>();
 
-function cacheKey(q: string, limit: number, bias?: { lat: number; lng: number } | null) {
+function cacheKey(q: string, limit: number, bias?: GeoBias | null) {
   const b = bias ? `${bias.lat.toFixed(2)},${bias.lng.toFixed(2)}` : "-";
   return `${normalizeText(q)}|${limit}|${b}`;
 }
@@ -320,6 +286,12 @@ export const GeoSearchService = {
       return out;
     };
 
+    // 0) CEP — resposta oficial direta, não precisa passar pelo resto do pipeline.
+    if (isCepQuery(q)) {
+      const cepResult = await soft(searchBrasilApiCep(q, { ...opts, signal: withTimeout(4000, userSignal) }));
+      if (cepResult.length) return finish(cepResult);
+    }
+
     // 1) Etapa rápida — Nominatim (região atual) + Photon em paralelo. Cada
     // um atualiza a lista assim que responder (não espera o outro), para o
     // primeiro resultado aparecer o quanto antes na tela.
@@ -364,13 +336,14 @@ export const GeoSearchService = {
       }
     }
 
-    // 4) Pelias + Nominatim amplo — reforço final, também com orçamento curto.
-    const slow = { ...opts, signal: withTimeout(3000, userSignal) };
-    const [pel, nomWide] = await Promise.all([
-      soft(searchPelias(q, slow)),
-      bias ? soft(searchNominatim(q, { ...slow, bias: null })) : Promise.resolve([] as AddressSuggestion[]),
-    ]);
-    acc.push(...tag(pel, "pelias", "address"), ...tag(nomWide, "nominatim", "address"));
+    // 4) Nominatim amplo (sem viewbox) — reforço final pra busca explícita de
+    // outra cidade (ex.: "Avenida Paulista, São Paulo" estando em Jequié).
+    if (bias) {
+      const nomWide = await soft(
+        searchNominatim(q, { ...opts, bias: null, signal: withTimeout(3000, userSignal) }),
+      );
+      acc.push(...tag(nomWide, "nominatim", "address"));
+    }
 
     return finish(acc);
   },
