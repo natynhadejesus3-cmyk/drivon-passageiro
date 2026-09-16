@@ -1,5 +1,6 @@
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
+import type { AddressSuggestion } from "./address-search-service";
 
 export type LocationCoords = {
   lat: number;
@@ -30,22 +31,55 @@ export async function getCurrentPosition(): Promise<LocationCoords> {
   return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
 }
 
-/** Cidade/estado do ponto — usado pra dar bônus de "mesma cidade" na busca. */
-export async function reverseGeocode(lat: number, lng: number): Promise<{ city?: string; state?: string }> {
+type ReverseResult = {
+  city?: string;
+  state?: string;
+  street?: string;
+  country?: string;
+};
+
+async function reverseLookup(lat: number, lng: number): Promise<ReverseResult> {
   try {
     const r = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=10`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18`,
       { headers: { "Accept-Language": "pt-BR" } },
     );
     const j = await r.json();
     const a = j.address ?? {};
     return {
-      city: a.city ?? a.town ?? a.village ?? a.municipality,
+      street: a.road ? `${a.road}${a.house_number ? ", " + a.house_number : ""}` : undefined,
+      city: a.city ?? a.town ?? a.village ?? a.municipality ?? a.county,
       state: a.state,
+      country: a.country,
     };
   } catch {
     return {};
   }
+}
+
+/** Cidade/estado do ponto — usado pra dar bônus de "mesma cidade" na busca. */
+export async function reverseGeocode(lat: number, lng: number): Promise<{ city?: string; state?: string }> {
+  const { city, state } = await reverseLookup(lat, lng);
+  return { city, state };
+}
+
+/** Endereço completo (rua, cidade, estado) formatado pra preencher a origem automaticamente. */
+export async function reverseGeocodeAddress(lat: number, lng: number): Promise<AddressSuggestion | null> {
+  const { street, city, state, country } = await reverseLookup(lat, lng);
+  if (!street && !city) return null;
+  const primary = street || [city, state].filter(Boolean).join(", ");
+  const location = [city, state].filter(Boolean).join(" - ");
+  const label = [primary, location, country].filter(Boolean).join(", ");
+  return {
+    id: `rev-${lat.toFixed(5)}-${lng.toFixed(5)}`,
+    label,
+    street: primary,
+    city: city ?? "",
+    state: state ?? "",
+    country: country ?? "",
+    lat,
+    lng,
+  };
 }
 
 /** Sinal aproximado (nível de cidade, via IP) quando o GPS falha ou é negado. */

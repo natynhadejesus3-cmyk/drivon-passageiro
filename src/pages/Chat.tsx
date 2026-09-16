@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, Clock, Navigation, Send, X } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
@@ -6,7 +6,11 @@ import { DriverAvatar } from "../components/DriverAvatar";
 import { useAuth } from "@/lib/auth-context";
 import { useLink, useMessages } from "@/lib/hooks";
 import { getCachedDriverName, markRead, sendMessage } from "@/lib/repository";
-import { resolveLocationContext, type LocationContext } from "@/lib/services/location-service";
+import {
+  resolveLocationContext,
+  reverseGeocodeAddress,
+  type LocationContext,
+} from "@/lib/services/location-service";
 import type { AddressSuggestion } from "@/lib/services/pelias-search-service";
 
 function formatTime(iso: string) {
@@ -29,26 +33,46 @@ export function Chat() {
   const { link, loading: linkLoading } = useLink(linkId);
   const { messages, refetch } = useMessages(linkId);
   const [text, setText] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [selectedOrigin, setSelectedOrigin] = useState<AddressSuggestion | null>(null);
   const [destination, setDestination] = useState("");
   const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(null);
   const [rideDate, setRideDate] = useState(todayInputValue);
   const [rideTime, setRideTime] = useState(nowInputValue);
   const [location, setLocation] = useState<LocationContext | null>(null);
   const [locating, setLocating] = useState(false);
+  const [locatingOrigin, setLocatingOrigin] = useState(false);
   const [askingRide, setAskingRide] = useState(false);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  function fillOriginFromGps(loc: LocationContext) {
+    if (loc.source !== "gps") return; // localização por IP é só de cidade, longe demais pra virar "origem"
+    setLocatingOrigin(true);
+    reverseGeocodeAddress(loc.lat, loc.lng)
+      .then((addr) => {
+        if (addr) {
+          setOrigin(addr.label);
+          setSelectedOrigin(addr);
+        }
+      })
+      .finally(() => setLocatingOrigin(false));
+  }
 
   function openRideRequest() {
     setAskingRide(true);
     setRideDate(todayInputValue());
     setRideTime(nowInputValue());
-    // Melhor ordenação das sugestões por proximidade — se a pessoa negar a
-    // permissão, a busca continua funcionando normalmente, só sem viés.
+    // Melhor ordenação das sugestões por proximidade, e preenche a origem
+    // automaticamente — se a pessoa negar a permissão, tudo isso continua
+    // funcionando normalmente, só sem os dois.
     if (!location) {
       setLocating(true);
       resolveLocationContext()
-        .then(setLocation)
+        .then((loc) => {
+          setLocation(loc);
+          if (loc && !origin) fillOriginFromGps(loc);
+        })
         .finally(() => setLocating(false));
     }
   }
@@ -79,14 +103,16 @@ export function Chat() {
   const driverName = getCachedDriverName(link.driver_id);
 
   async function submitRideRequest() {
-    if (!destination.trim() || !user) return;
+    if (!origin.trim() || !destination.trim() || !user) return;
     setSending(true);
     try {
       const when = new Date(`${rideDate}T${rideTime}`);
       const dateLabel = when.toLocaleDateString("pt-BR");
       const timeLabel = when.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const body = `Você pode me levar em ${destination.trim()} no dia ${dateLabel} às ${timeLabel}?`;
+      const body = `Você pode me buscar em ${origin.trim()} e me levar em ${destination.trim()} no dia ${dateLabel} às ${timeLabel}?`;
       await sendMessage(linkId, user.id, body, true);
+      setOrigin("");
+      setSelectedOrigin(null);
       setDestination("");
       setSelectedAddress(null);
       setAskingRide(false);
@@ -160,7 +186,7 @@ export function Chat() {
       {askingRide && (
         <div className="absolute inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60" onClick={() => setAskingRide(false)} />
-          <div className="relative rounded-t-3xl border-t border-[color:var(--color-hairline)] bg-card-elevated px-5 pb-6 pt-5">
+          <div className="relative max-h-[88%] overflow-y-auto rounded-t-3xl border-t border-[color:var(--color-hairline)] bg-card-elevated px-5 pb-6 pt-5">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-title">Pedir corrida</p>
               <button
@@ -171,7 +197,32 @@ export function Chat() {
               </button>
             </div>
 
-            <p className="section-label mb-2">Destino</p>
+            <div className="mb-1 flex items-center justify-between">
+              <p className="section-label">Origem</p>
+              <button
+                onClick={() => location && fillOriginFromGps(location)}
+                disabled={!location || locatingOrigin}
+                title="Usar minha localização atual"
+                className="flex items-center gap-1 text-[11px] font-semibold text-primary disabled:opacity-40"
+              >
+                <Crosshair size={12} />
+                Usar localização atual
+              </button>
+            </div>
+            <AddressAutocomplete
+              value={origin}
+              onChange={(v) => {
+                setOrigin(v);
+                if (selectedOrigin && v !== selectedOrigin.label) setSelectedOrigin(null);
+              }}
+              onSelect={setSelectedOrigin}
+              bias={location}
+              hasSelection={!!selectedOrigin && selectedOrigin.label === origin}
+              placeholder={locatingOrigin ? "Localizando..." : "Rua, praça, bairro..."}
+              inputClassName="w-full rounded-xl border border-[color:var(--color-hairline)] bg-background px-4 py-3 text-[15px] outline-none focus:border-primary"
+            />
+
+            <p className="section-label mb-2 mt-4">Destino</p>
             <AddressAutocomplete
               value={destination}
               onChange={(v) => {
@@ -221,7 +272,7 @@ export function Chat() {
 
             <button
               onClick={submitRideRequest}
-              disabled={!destination.trim() || sending}
+              disabled={!origin.trim() || !destination.trim() || sending}
               className="btn-primary mt-5 flex w-full items-center justify-center gap-2 disabled:opacity-40"
             >
               <Send size={16} />
