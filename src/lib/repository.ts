@@ -182,6 +182,19 @@ export async function saveFcmToken(
   if (error) throw error;
 }
 
+/**
+ * Garante que o motorista sempre tenha ALGUM nome pra ver, mesmo que o
+ * passageiro nunca abra a tela de perfil manualmente — usa o nome que ele já
+ * deu no cadastro. Só roda quando ainda não existe full_name salvo (não
+ * sobrescreve uma edição manual).
+ */
+export async function seedPassengerNameIfMissing(userId: string, displayName?: string): Promise<void> {
+  if (!displayName?.trim()) return;
+  const existing = await getMyPassengerProfile(userId);
+  if (existing?.full_name) return;
+  await upsertPassengerProfile(userId, { full_name: displayName.trim() });
+}
+
 export async function setPassengerPresence(userId: string, online: boolean): Promise<void> {
   const { error } = await supabase
     .from("passenger_profiles")

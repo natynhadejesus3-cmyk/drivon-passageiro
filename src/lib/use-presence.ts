@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useAuth } from "./auth-context";
-import { setPassengerPresence } from "./repository";
+import { seedPassengerNameIfMissing, setPassengerPresence } from "./repository";
 
 /**
  * Status "online" real (visível pro motorista), igual o WhatsApp: fica
@@ -15,6 +15,9 @@ export function usePresence() {
     if (!user?.id) return;
     const userId = user.id;
     void setPassengerPresence(userId, true).catch(() => {});
+    // Sem isso, o motorista só vê o nome do passageiro depois que ele abrir
+    // a tela de perfil manualmente — o nome do cadastro nunca chegava lá.
+    void seedPassengerNameIfMissing(userId, user.user_metadata?.display_name as string | undefined).catch(() => {});
 
     function onHidden() {
       if (document.visibilityState === "hidden") void setPassengerPresence(userId, false).catch(() => {});

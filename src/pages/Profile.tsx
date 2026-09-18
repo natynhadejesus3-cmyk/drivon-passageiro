@@ -16,12 +16,15 @@ export function Profile() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const loadedNameRef = useRef("");
 
   useEffect(() => {
     if (!user?.id) return;
     getMyPassengerProfile(user.id)
       .then((p) => {
-        setFullName(p?.full_name ?? (user.user_metadata?.display_name as string | undefined) ?? "");
+        const name = p?.full_name ?? (user.user_metadata?.display_name as string | undefined) ?? "";
+        setFullName(name);
+        loadedNameRef.current = name;
         setAvatar(p?.avatar_url ?? null);
       })
       .catch(() => {
@@ -40,6 +43,21 @@ export function Profile() {
       setSaving(false);
     }
   }
+
+  // Salva sozinho pouco depois de parar de digitar — depender só do onBlur
+  // perde a edição se a pessoa tocar direto na barra de navegação de baixo
+  // (o componente desmonta antes do blur "natural" acontecer).
+  useEffect(() => {
+    if (!user?.id) return;
+    const trimmed = fullName.trim();
+    if (trimmed === loadedNameRef.current.trim()) return;
+    const handle = setTimeout(() => {
+      loadedNameRef.current = trimmed;
+      save({ full_name: trimmed });
+    }, 700);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullName, user?.id]);
 
   async function handlePhoto(files: FileList | null) {
     const file = files?.[0];
@@ -110,7 +128,6 @@ export function Profile() {
               <input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                onBlur={() => save({ full_name: fullName.trim() })}
                 placeholder="Como o motorista vai te ver"
                 className="mt-1.5 w-full bg-transparent text-[15px] outline-none"
               />
