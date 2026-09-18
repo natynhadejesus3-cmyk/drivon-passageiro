@@ -66,8 +66,7 @@ export function Profile() {
       <ScreenHeader title="Meu perfil" subtitle="O motorista vê isso quando vocês conversam" />
 
       <div className="space-y-6 px-5 pb-8">
-        <div className="relative flex flex-col items-center gap-3 pt-2">
-          <div className="glow-primary left-1/2 top-0 -z-10 h-36 w-36 -translate-x-1/2 -translate-y-6" />
+        <div className="flex flex-col items-center gap-3 pt-2">
           <button
             type="button"
             onClick={() => setPickerOpen(true)}

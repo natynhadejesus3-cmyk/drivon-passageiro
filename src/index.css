@@ -160,15 +160,6 @@
   box-shadow: 0 12px 24px -18px rgba(0, 0, 0, 0.6);
 }
 
-/* Mancha de luz decorativa (laranja da marca) atrás de cabeçalhos/avatares. */
-@utility glow-primary {
-  position: absolute;
-  border-radius: 9999px;
-  background: radial-gradient(closest-side, rgba(255, 106, 0, 0.35), transparent 70%);
-  filter: blur(2px);
-  pointer-events: none;
-}
-
 @utility btn-primary {
   height: 3.25rem;
   border-radius: 0.75rem;

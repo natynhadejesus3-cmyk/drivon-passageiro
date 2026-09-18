@@ -20,13 +20,10 @@ export function Home() {
 
   return (
     <div>
-      <div className="relative overflow-hidden">
-        <div className="glow-primary -right-8 -top-16 h-48 w-48" />
-        <ScreenHeader
-          title="Meus motoristas"
-          subtitle={links.length > 0 ? `${links.length} cadastrado${links.length > 1 ? "s" : ""}` : undefined}
-        />
-      </div>
+      <ScreenHeader
+        title="Meus motoristas"
+        subtitle={links.length > 0 ? `${links.length} cadastrado${links.length > 1 ? "s" : ""}` : undefined}
+      />
 
       <div className="space-y-2 px-5">
         {!loading && links.length === 0 && (
