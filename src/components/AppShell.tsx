@@ -1,12 +1,13 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Calendar, Home, QrCode } from "lucide-react";
+import { Calendar, Home, QrCode, User } from "lucide-react";
 
 const items = [
   { to: "/", icon: Home, label: "Motoristas" },
   { to: "/agenda", icon: Calendar, label: "Agenda" },
   { to: "/pair", icon: QrCode, label: "Parear" },
+  { to: "/profile", icon: User, label: "Perfil" },
 ] as const;
 
 /**
@@ -29,17 +30,19 @@ export function AppShell({ children, hideNav }: { children: ReactNode; hideNav?:
           className="z-40 shrink-0 border-t border-[color:var(--color-hairline)] bg-[color:var(--color-card)]/95 backdrop-blur-xl"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
-          <ul className="grid grid-cols-3">
+          <ul className="grid grid-cols-4">
             {items.map(({ to, icon: Icon, label }) => {
               const active = loc.pathname === to;
               return (
-                <li key={to}>
+                <li key={to} className="flex justify-center py-2">
                   <Link
                     to={to}
-                    className="relative flex h-[64px] flex-col items-center justify-center gap-1"
+                    className={`flex w-16 flex-col items-center justify-center gap-1 rounded-2xl py-2 transition-colors ${
+                      active ? "bg-primary-soft" : ""
+                    }`}
                   >
                     <Icon
-                      className={`h-[22px] w-[22px] transition-colors ${active ? "text-primary" : "text-muted-foreground"}`}
+                      className={`h-[21px] w-[21px] transition-colors ${active ? "text-primary" : "text-muted-foreground"}`}
                       strokeWidth={active ? 2.4 : 2}
                     />
                     <span
@@ -47,7 +50,6 @@ export function AppShell({ children, hideNav }: { children: ReactNode; hideNav?:
                     >
                       {label}
                     </span>
-                    {active && <span className="absolute top-1 h-0.5 w-8 rounded-full bg-primary" />}
                   </Link>
                 </li>
               );

@@ -15,8 +15,7 @@ function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
   const { session, loading } = useAuth();
-  const hideNav =
-    location.pathname.startsWith("/chat/") || location.pathname === "/pair" || location.pathname === "/profile";
+  const hideNav = location.pathname.startsWith("/chat/") || location.pathname === "/pair";
 
   usePresence();
 

@@ -1,26 +1,14 @@
-import { LogOut, QrCode, Unlink, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { QrCode, Unlink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
 import { DriverAvatar } from "../components/DriverAvatar";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
 import { formatLastSeen } from "@/lib/format";
 import { useDriverProfile, useLinks } from "@/lib/hooks";
-import { getCachedDriverName, getMyPassengerProfile, unlinkDriver } from "@/lib/repository";
+import { getCachedDriverName, unlinkDriver } from "@/lib/repository";
 import type { DriverPassengerLink } from "@/integrations/supabase/types";
 
 export function Home() {
   const { links, loading, refetch } = useLinks();
-  const { user } = useAuth();
-  const [myAvatar, setMyAvatar] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    getMyPassengerProfile(user.id)
-      .then((p) => setMyAvatar(p?.avatar_url ?? null))
-      .catch(() => {});
-  }, [user?.id]);
 
   async function handleUnlink(e: React.MouseEvent, linkId: string) {
     e.preventDefault();
@@ -32,32 +20,13 @@ export function Home() {
 
   return (
     <div>
-      <ScreenHeader
-        title="Meus motoristas"
-        subtitle={links.length > 0 ? `${links.length} cadastrado${links.length > 1 ? "s" : ""}` : undefined}
-        right={
-          <div className="flex shrink-0 items-center gap-2">
-            <Link
-              to="/profile"
-              title="Meu perfil"
-              className="grid h-11 w-11 place-items-center overflow-hidden rounded-2xl border border-[color:var(--color-hairline)] bg-card text-muted-foreground"
-            >
-              {myAvatar ? (
-                <img src={myAvatar} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <User size={18} />
-              )}
-            </Link>
-            <button
-              onClick={() => supabase.auth.signOut()}
-              title="Sair"
-              className="grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--color-hairline)] bg-card text-muted-foreground"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
-        }
-      />
+      <div className="relative overflow-hidden">
+        <div className="glow-primary -right-8 -top-16 h-48 w-48" />
+        <ScreenHeader
+          title="Meus motoristas"
+          subtitle={links.length > 0 ? `${links.length} cadastrado${links.length > 1 ? "s" : ""}` : undefined}
+        />
+      </div>
 
       <div className="space-y-2 px-5">
         {!loading && links.length === 0 && (
@@ -115,7 +84,7 @@ function DriverRow({
   return (
     <Link
       to={`/chat/${link.id}`}
-      className={`flex items-center gap-3 p-4 active:bg-card ${
+      className={`stagger-item flex items-center gap-3 p-4 active:bg-card ${
         !last ? "border-b border-[color:var(--color-hairline)]" : ""
       }`}
     >
