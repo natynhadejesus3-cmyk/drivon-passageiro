@@ -67,6 +67,17 @@ export type PassengerPushToken = {
   updated_at: string;
 };
 
+/** Assinatura Web Push (VAPID) do aparelho — o Drivon (motorista) lê via service_role pra notificar. */
+export type PassengerPushDevice = {
+  device_id: string;
+  passenger_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -93,6 +104,13 @@ export type Database = {
         Row: PassengerPushToken;
         Insert: Partial<PassengerPushToken> & Pick<PassengerPushToken, "passenger_id" | "device_id" | "token">;
         Update: Partial<PassengerPushToken>;
+        Relationships: [];
+      };
+      passenger_push_devices: {
+        Row: PassengerPushDevice;
+        Insert: Partial<PassengerPushDevice> &
+          Pick<PassengerPushDevice, "device_id" | "passenger_id" | "endpoint" | "p256dh" | "auth">;
+        Update: Partial<PassengerPushDevice>;
         Relationships: [];
       };
     };
