@@ -1,10 +1,11 @@
-import { Camera, ChevronRight, Image as ImageIcon, LogOut, Mail, User, X } from "lucide-react";
+import { Bell, BellOff, Camera, ChevronRight, Image as ImageIcon, LogOut, Mail, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ScreenHeader } from "../components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { getMyPassengerProfile, upsertPassengerProfile } from "@/lib/repository";
+import { notificationPermission, requestWebPush, type PermissionState } from "@/lib/notifications/web-push";
 
 const APP_VERSION = "1.0.0";
 
@@ -17,6 +18,22 @@ export function Profile() {
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const loadedNameRef = useRef("");
+  const [notifPerm, setNotifPerm] = useState<PermissionState>("default");
+  const [notifBusy, setNotifBusy] = useState(false);
+
+  useEffect(() => {
+    setNotifPerm(notificationPermission());
+  }, []);
+
+  async function toggleNotifications() {
+    if (!user?.id || notifPerm === "denied") return;
+    setNotifBusy(true);
+    try {
+      setNotifPerm(await requestWebPush(user.id));
+    } finally {
+      setNotifBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -149,11 +166,26 @@ export function Profile() {
           <p className="section-label mb-2 px-1">Configurações</p>
           <div className="list-card">
             <SettingsRow
-              icon={<LogOut size={16} />}
-              label="Sair da conta"
-              destructive
-              onClick={() => supabase.auth.signOut()}
+              icon={notifPerm === "granted" ? <Bell size={16} /> : <BellOff size={16} />}
+              label={
+                notifPerm === "granted"
+                  ? "Notificações ativadas"
+                  : notifPerm === "denied"
+                    ? "Notificações bloqueadas — ative nos ajustes do aparelho"
+                    : notifBusy
+                      ? "Ativando..."
+                      : "Ativar notificações de mensagens"
+              }
+              onClick={toggleNotifications}
             />
+            <div className="border-t border-[color:var(--color-hairline)]">
+              <SettingsRow
+                icon={<LogOut size={16} />}
+                label="Sair da conta"
+                destructive
+                onClick={() => supabase.auth.signOut()}
+              />
+            </div>
           </div>
         </div>
 

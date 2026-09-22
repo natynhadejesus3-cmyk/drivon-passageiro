@@ -29,6 +29,13 @@ export function pushSupported(): boolean {
   );
 }
 
+export type PermissionState = "unsupported" | "default" | "granted" | "denied";
+
+export function notificationPermission(): PermissionState {
+  if (!pushSupported()) return "unsupported";
+  return Notification.permission as PermissionState;
+}
+
 let registration: ServiceWorkerRegistration | null = null;
 
 async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> {
@@ -36,8 +43,8 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> 
   if (registration) return registration;
   try {
     // O app é publicado numa subpasta (GitHub Pages, ex.: /drivon-passageiro/),
-    // não na raiz — registrar em "/sw.js" tentava buscar o arquivo na raiz do
-    // domínio (github.io/sw.js), que não existe, e falhava sempre, silenciosamente.
+    // não na raiz — registrar em "/sw.js" buscava o arquivo na raiz do domínio
+    // (github.io/sw.js), que não existe, e falhava sempre, silenciosamente.
     const base = import.meta.env.BASE_URL || "/";
     registration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base, updateViaCache: "none" });
     await navigator.serviceWorker.ready;
@@ -48,66 +55,84 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> 
   }
 }
 
-/**
- * Pede permissão de notificação (se ainda não decidida) e garante a
- * assinatura Web Push (VAPID) salva pro Drivon poder notificar esse
- * passageiro quando o motorista mandar mensagem com o app fechado. Idempotente
- * — pode ser chamada em toda abertura do app.
- */
-export async function initWebPush(passengerId: string): Promise<void> {
-  if (!pushSupported()) {
-    console.warn("[drivon] Web Push não suportado neste navegador/WebView");
-    return;
+/** Garante a assinatura Web Push salva pro Drivon, assumindo que a permissão já foi concedida. */
+async function subscribeAndSave(passengerId: string): Promise<boolean> {
+  const reg = await ensureServiceWorker();
+  if (!reg) return false;
+
+  const key = import.meta.env["VITE_VAPID_PUBLIC_KEY"] as string | undefined;
+  if (!key) {
+    console.error("[drivon] VITE_VAPID_PUBLIC_KEY ausente no build");
+    return false;
   }
+  const appKey = urlBase64ToUint8Array(key);
 
+  let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    const current = bufferToBase64Url(sub.options?.applicationServerKey ?? null);
+    if (current && current !== key) {
+      await sub.unsubscribe().catch(() => undefined);
+      sub = null;
+    }
+  }
+  if (!sub) {
+    sub = await reg.pushManager
+      .subscribe({ userVisibleOnly: true, applicationServerKey: appKey as BufferSource })
+      .catch((e) => {
+        console.error("[drivon] pushManager.subscribe falhou", e);
+        return null;
+      });
+  }
+  if (!sub) return false;
+
+  const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return false;
+
+  await savePushDevice(
+    passengerId,
+    getDeviceId(),
+    { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
+    navigator.userAgent.slice(0, 400),
+  );
+  console.log("[drivon] Web Push inscrito com sucesso");
+  return true;
+}
+
+/**
+ * Chamada em TODA abertura do app (sem pedir nada) — mesmo papel do
+ * ensurePushSubscription() do app do motorista. Nunca chama
+ * Notification.requestPermission() sozinha: navegadores/WebViews ignoram
+ * silenciosamente esse pedido quando ele não vem de um toque direto da
+ * pessoa (sem gesto do usuário), então chamar isso automaticamente no
+ * carregamento do app nunca mostrava nada — parecia que "não tinha permissão
+ * nenhuma pra pedir". Só reforça a inscrição quando já está concedida.
+ */
+export async function ensureWebPush(passengerId: string): Promise<void> {
+  if (!pushSupported() || Notification.permission !== "granted") return;
   try {
-    if (Notification.permission !== "granted") {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") {
-        console.warn("[drivon] permissão de notificação não concedida:", perm);
-        return;
-      }
-    }
-
-    const reg = await ensureServiceWorker();
-    if (!reg) return;
-
-    const key = import.meta.env["VITE_VAPID_PUBLIC_KEY"] as string | undefined;
-    if (!key) {
-      console.error("[drivon] VITE_VAPID_PUBLIC_KEY ausente no build");
-      return;
-    }
-    const appKey = urlBase64ToUint8Array(key);
-
-    let sub = await reg.pushManager.getSubscription();
-    if (sub) {
-      const current = bufferToBase64Url(sub.options?.applicationServerKey ?? null);
-      if (current && current !== key) {
-        await sub.unsubscribe().catch(() => undefined);
-        sub = null;
-      }
-    }
-    if (!sub) {
-      sub = await reg.pushManager
-        .subscribe({ userVisibleOnly: true, applicationServerKey: appKey as BufferSource })
-        .catch((e) => {
-          console.error("[drivon] pushManager.subscribe falhou", e);
-          return null;
-        });
-    }
-    if (!sub) return;
-
-    const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return;
-
-    await savePushDevice(
-      passengerId,
-      getDeviceId(),
-      { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
-      navigator.userAgent.slice(0, 400),
-    );
-    console.log("[drivon] Web Push inscrito com sucesso");
+    await subscribeAndSave(passengerId);
   } catch (e) {
-    console.error("[drivon] initWebPush falhou", e);
+    console.error("[drivon] ensureWebPush falhou", e);
+  }
+}
+
+/**
+ * Pede a permissão de verdade — só deve ser chamada a partir de um toque
+ * direto da pessoa (onClick de um botão), igual requestNotificationPermission()
+ * no app do motorista (chamada só pelo toggle de Configurações, nunca sozinha).
+ */
+export async function requestWebPush(passengerId: string): Promise<PermissionState> {
+  if (!pushSupported()) return "unsupported";
+  if (Notification.permission === "granted") {
+    await subscribeAndSave(passengerId).catch(() => undefined);
+    return "granted";
+  }
+  if (Notification.permission === "denied") return "denied";
+  try {
+    const perm = (await Notification.requestPermission()) as PermissionState;
+    if (perm === "granted") await subscribeAndSave(passengerId).catch(() => undefined);
+    return perm;
+  } catch {
+    return "denied";
   }
 }
