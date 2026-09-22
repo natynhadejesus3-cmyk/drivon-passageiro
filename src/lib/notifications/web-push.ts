@@ -35,10 +35,15 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> 
   if (!pushSupported()) return null;
   if (registration) return registration;
   try {
-    registration = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
+    // O app é publicado numa subpasta (GitHub Pages, ex.: /drivon-passageiro/),
+    // não na raiz — registrar em "/sw.js" tentava buscar o arquivo na raiz do
+    // domínio (github.io/sw.js), que não existe, e falhava sempre, silenciosamente.
+    const base = import.meta.env.BASE_URL || "/";
+    registration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base, updateViaCache: "none" });
     await navigator.serviceWorker.ready;
     return registration;
-  } catch {
+  } catch (e) {
+    console.error("[drivon] registro do service worker falhou", e);
     return null;
   }
 }
@@ -50,20 +55,28 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> 
  * — pode ser chamada em toda abertura do app.
  */
 export async function initWebPush(passengerId: string): Promise<void> {
-  if (!pushSupported()) return;
+  if (!pushSupported()) {
+    console.warn("[drivon] Web Push não suportado neste navegador/WebView");
+    return;
+  }
 
   try {
-    if (Notification.permission === "default") {
+    if (Notification.permission !== "granted") {
       const perm = await Notification.requestPermission();
-      if (perm !== "granted") return;
+      if (perm !== "granted") {
+        console.warn("[drivon] permissão de notificação não concedida:", perm);
+        return;
+      }
     }
-    if (Notification.permission !== "granted") return;
 
     const reg = await ensureServiceWorker();
     if (!reg) return;
 
     const key = import.meta.env["VITE_VAPID_PUBLIC_KEY"] as string | undefined;
-    if (!key) return;
+    if (!key) {
+      console.error("[drivon] VITE_VAPID_PUBLIC_KEY ausente no build");
+      return;
+    }
     const appKey = urlBase64ToUint8Array(key);
 
     let sub = await reg.pushManager.getSubscription();
@@ -77,7 +90,10 @@ export async function initWebPush(passengerId: string): Promise<void> {
     if (!sub) {
       sub = await reg.pushManager
         .subscribe({ userVisibleOnly: true, applicationServerKey: appKey as BufferSource })
-        .catch(() => null);
+        .catch((e) => {
+          console.error("[drivon] pushManager.subscribe falhou", e);
+          return null;
+        });
     }
     if (!sub) return;
 
@@ -90,6 +106,7 @@ export async function initWebPush(passengerId: string): Promise<void> {
       { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
       navigator.userAgent.slice(0, 400),
     );
+    console.log("[drivon] Web Push inscrito com sucesso");
   } catch (e) {
     console.error("[drivon] initWebPush falhou", e);
   }
