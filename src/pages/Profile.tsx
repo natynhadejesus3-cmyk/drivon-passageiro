@@ -27,22 +27,28 @@ export function Profile() {
   // acontecendo de verdade no aparelho.
   const [notifDebug, setNotifDebug] = useState("");
 
+  function apiDebugLine() {
+    const sw = typeof window !== "undefined" && "serviceWorker" in navigator;
+    const pm = typeof window !== "undefined" && "PushManager" in window;
+    const notif = typeof window !== "undefined" && "Notification" in window;
+    return `serviceWorker=${sw} PushManager=${pm} Notification=${notif}`;
+  }
+
   useEffect(() => {
-    const supported =
-      typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     setNotifPerm(notificationPermission());
-    setNotifDebug(`suportado=${supported} permissão=${notificationPermission()}`);
+    setNotifDebug(apiDebugLine());
   }, []);
 
   async function toggleNotifications() {
     if (!user?.id || notifPerm === "denied") return;
     setNotifBusy(true);
+    setNotifDebug(apiDebugLine());
     // requestWebPush roda direto aqui, sem nada assíncrono antes — só assim o
     // navegador aceita mostrar a caixinha de permissão nativa.
     requestWebPush(user.id)
       .then((result) => {
         setNotifPerm(result);
-        setNotifDebug(`resultado=${result}`);
+        setNotifDebug(`${apiDebugLine()} · resultado=${result}`);
       })
       .catch((e) => setNotifDebug(`erro=${e}`))
       .finally(() => setNotifBusy(false));
