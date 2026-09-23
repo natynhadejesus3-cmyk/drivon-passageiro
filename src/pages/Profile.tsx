@@ -20,27 +20,32 @@ export function Profile() {
   const loadedNameRef = useRef("");
   const [notifPerm, setNotifPerm] = useState<PermissionState>("default");
   const [notifBusy, setNotifBusy] = useState(false);
+  // Diagnóstico temporário, mas dessa vez como texto na tela (não alert()) —
+  // um alert() no meio do fluxo interrompe o encadeamento clique->pedido de
+  // permissão que o navegador exige (a tentativa anterior quebrava por causa
+  // disso). Texto simples não atrapalha nada e ainda mostra o que está
+  // acontecendo de verdade no aparelho.
+  const [notifDebug, setNotifDebug] = useState("");
 
   useEffect(() => {
+    const supported =
+      typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     setNotifPerm(notificationPermission());
+    setNotifDebug(`suportado=${supported} permissão=${notificationPermission()}`);
   }, []);
 
-  // IMPORTANTE: nada de await/alert/qualquer coisa assíncrona ANTES de
-  // requestWebPush aqui — o navegador só deixa Notification.requestPermission()
-  // mostrar a caixinha quando ela roda dentro do mesmo toque do usuário, sem
-  // interrupção. Um alert() de diagnóstico colocado antes (tentativa anterior)
-  // quebrava exatamente esse encadeamento: o toque "expirava" enquanto a
-  // pessoa lia e fechava o alerta, e a permissão nunca chegava a ser pedida
-  // de verdade. Mesmo motivo pelo qual, no motorista, requestNotificationPermission()
-  // roda direto a partir do onClick do botão, sem nada no meio.
   async function toggleNotifications() {
     if (!user?.id || notifPerm === "denied") return;
     setNotifBusy(true);
-    try {
-      setNotifPerm(await requestWebPush(user.id));
-    } finally {
-      setNotifBusy(false);
-    }
+    // requestWebPush roda direto aqui, sem nada assíncrono antes — só assim o
+    // navegador aceita mostrar a caixinha de permissão nativa.
+    requestWebPush(user.id)
+      .then((result) => {
+        setNotifPerm(result);
+        setNotifDebug(`resultado=${result}`);
+      })
+      .catch((e) => setNotifDebug(`erro=${e}`))
+      .finally(() => setNotifBusy(false));
   }
 
   useEffect(() => {
@@ -186,6 +191,7 @@ export function Profile() {
               }
               onClick={toggleNotifications}
             />
+            {notifDebug && <p className="border-t border-[color:var(--color-hairline)] px-4 py-2 text-[11px] text-muted-foreground">{notifDebug}</p>}
             <div className="border-t border-[color:var(--color-hairline)]">
               <SettingsRow
                 icon={<LogOut size={16} />}

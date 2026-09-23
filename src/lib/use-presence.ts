@@ -28,10 +28,22 @@ export function usePresence() {
     document.addEventListener("visibilitychange", onHidden);
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("pagehide", onHidden);
+
+    // Fechar o app "no tapa" nunca dispara visibilitychange/pagehide — o
+    // is_online ficava travado em true pra sempre, e isso também travava o
+    // push do motorista pra sempre (o gatilho achava que o app sempre estava
+    // aberto). Esse heartbeat mantém last_seen_at fresco enquanto o app está
+    // de verdade em primeiro plano; passenger_public_profile e o gatilho de
+    // push só confiam no is_online quando last_seen_at é recente.
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState === "visible") void setPassengerPresence(userId, true).catch(() => {});
+    }, 45_000);
+
     return () => {
       document.removeEventListener("visibilitychange", onHidden);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pagehide", onHidden);
+      clearInterval(heartbeat);
     };
   }, [user?.id]);
 }
