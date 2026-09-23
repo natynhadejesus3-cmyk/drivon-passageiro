@@ -25,30 +25,19 @@ export function Profile() {
     setNotifPerm(notificationPermission());
   }, []);
 
+  // IMPORTANTE: nada de await/alert/qualquer coisa assíncrona ANTES de
+  // requestWebPush aqui — o navegador só deixa Notification.requestPermission()
+  // mostrar a caixinha quando ela roda dentro do mesmo toque do usuário, sem
+  // interrupção. Um alert() de diagnóstico colocado antes (tentativa anterior)
+  // quebrava exatamente esse encadeamento: o toque "expirava" enquanto a
+  // pessoa lia e fechava o alerta, e a permissão nunca chegava a ser pedida
+  // de verdade. Mesmo motivo pelo qual, no motorista, requestNotificationPermission()
+  // roda direto a partir do onClick do botão, sem nada no meio.
   async function toggleNotifications() {
-    if (!user?.id) return;
-    // Diagnóstico temporário: o clique não estava mudando nada visível em
-    // alguns aparelhos, e sem isso não dá pra saber, de fora, em qual passo
-    // exato está falhando (API ausente? permissão já negada? subscribe
-    // recusado?). alert() porque o console não é visível fora do desktop.
-    const supported =
-      typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-    alert(
-      `Diagnóstico:\nsuportado=${supported}\nNotification.permission=${
-        typeof Notification !== "undefined" ? Notification.permission : "API ausente"
-      }`,
-    );
-    if (notifPerm === "denied") {
-      alert("Bloqueado pelo navegador — precisa liberar manualmente nos ajustes do aparelho.");
-      return;
-    }
+    if (!user?.id || notifPerm === "denied") return;
     setNotifBusy(true);
     try {
-      const result = await requestWebPush(user.id);
-      alert(`Resultado: ${result}`);
-      setNotifPerm(result);
-    } catch (e) {
-      alert(`Erro: ${e}`);
+      setNotifPerm(await requestWebPush(user.id));
     } finally {
       setNotifBusy(false);
     }
