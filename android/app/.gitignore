@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+
+# Firebase config (arquivo sensível — nunca vai pro repositório)
+google-services.json

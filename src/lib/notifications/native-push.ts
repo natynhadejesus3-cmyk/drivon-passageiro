@@ -14,7 +14,7 @@ const CHANNEL_ID = "drivon_passageiro_default";
  * depois que o google-services.json de verdade estiver em
  * android/app/google-services.json E um novo APK for gerado.
  */
-const NATIVE_PUSH_ENABLED = false;
+const NATIVE_PUSH_ENABLED = true;
 
 let started = false;
 
