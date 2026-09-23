@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { getMyPassengerProfile, upsertPassengerProfile } from "@/lib/repository";
 import { notificationPermission, requestWebPush, type PermissionState } from "@/lib/notifications/web-push";
+import { getNativePushStatus } from "@/lib/notifications/native-push";
 
 const APP_VERSION = "1.0.0";
 
@@ -26,6 +27,20 @@ export function Profile() {
   // disso). Texto simples não atrapalha nada e ainda mostra o que está
   // acontecendo de verdade no aparelho.
   const [notifDebug, setNotifDebug] = useState("");
+  const [nativeStatus, setNativeStatus] = useState("");
+
+  // O registro nativo (FCM de verdade) roda em segundo plano desde o boot do
+  // app (App.tsx) — aqui só fica de olho no status pra mostrar na tela,
+  // atualizando por um tempo até ele terminar (sucesso ou erro).
+  useEffect(() => {
+    setNativeStatus(getNativePushStatus());
+    const id = setInterval(() => setNativeStatus(getNativePushStatus()), 1000);
+    const stop = setTimeout(() => clearInterval(id), 20_000);
+    return () => {
+      clearInterval(id);
+      clearTimeout(stop);
+    };
+  }, []);
 
   function apiDebugLine() {
     const sw = typeof window !== "undefined" && "serviceWorker" in navigator;
@@ -198,6 +213,11 @@ export function Profile() {
               onClick={toggleNotifications}
             />
             {notifDebug && <p className="border-t border-[color:var(--color-hairline)] px-4 py-2 text-[11px] text-muted-foreground">{notifDebug}</p>}
+            {nativeStatus && (
+              <p className="border-t border-[color:var(--color-hairline)] px-4 py-2 text-[11px] text-muted-foreground">
+                FCM nativo: {nativeStatus}
+              </p>
+            )}
             <div className="border-t border-[color:var(--color-hairline)]">
               <SettingsRow
                 icon={<LogOut size={16} />}
