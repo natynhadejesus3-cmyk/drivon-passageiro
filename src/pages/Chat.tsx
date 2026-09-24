@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
+import { ArrowLeft, Calendar, Check, CheckCheck, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
@@ -180,7 +180,15 @@ export function Chat() {
                     {m.ride_confirmed ? "Corrida confirmada" : "Pedido de corrida · aguardando"}
                   </p>
                 )}
-                <p className="mt-1 text-[10px] opacity-70">{formatTime(m.created_at)}</p>
+                <p className="mt-1 flex items-center gap-1 text-[10px] opacity-70">
+                  {formatTime(m.created_at)}
+                  {mine &&
+                    (m.read_at ? (
+                      <CheckCheck size={13} className="text-sky-300 opacity-100" />
+                    ) : (
+                      <Check size={13} />
+                    ))}
+                </p>
               </div>
             </div>
           );
