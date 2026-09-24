@@ -1,10 +1,10 @@
-import { ArrowLeft, Calendar, Check, CheckCheck, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { DriverAvatar } from "../components/DriverAvatar";
 import { useAuth } from "@/lib/auth-context";
-import { formatLastSeen } from "@/lib/format";
+import { formatLastSeen, seenAgo } from "@/lib/format";
 import { useDriverProfile, useLink, useMessages } from "@/lib/hooks";
 import { getCachedDriverName, markRead, sendMessage } from "@/lib/repository";
 import {
@@ -47,6 +47,8 @@ export function Chat() {
   const [askingRide, setAskingRide] = useState(false);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Só pra forçar o "Visto há X minutos" a se atualizar sozinho com o tempo.
+  const [, tick] = useState(0);
 
   function fillOriginFromGps(loc: LocationContext) {
     if (loc.source !== "gps") return; // localização por IP é só de cidade, longe demais pra virar "origem"
@@ -88,6 +90,11 @@ export function Chat() {
       .filter((m) => m.sender_role === "driver" && !m.read_at)
       .forEach((m) => markRead(m.id).catch(() => {}));
   }, [messages]);
+
+  useEffect(() => {
+    const id = setInterval(() => tick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   if (linkLoading) return null;
 
@@ -180,19 +187,16 @@ export function Chat() {
                     {m.ride_confirmed ? "Corrida confirmada" : "Pedido de corrida · aguardando"}
                   </p>
                 )}
-                <p className="mt-1 flex items-center gap-1 text-[10px] opacity-70">
-                  {formatTime(m.created_at)}
-                  {mine &&
-                    (m.read_at ? (
-                      <CheckCheck size={13} className="text-sky-300 opacity-100" />
-                    ) : (
-                      <Check size={13} />
-                    ))}
-                </p>
+                <p className="mt-1 text-[10px] opacity-70">{formatTime(m.created_at)}</p>
               </div>
             </div>
           );
         })}
+        {(() => {
+          const last = messages[messages.length - 1];
+          if (!last || last.sender_role !== "passenger" || !last.read_at) return null;
+          return <p className="pr-1 text-right text-[10px] text-muted-foreground">{seenAgo(last.read_at)}</p>;
+        })()}
         <div ref={bottomRef} />
       </div>
 
