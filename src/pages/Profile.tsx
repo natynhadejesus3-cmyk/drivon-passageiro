@@ -1,11 +1,10 @@
-import { Bell, BellOff, Camera, ChevronRight, Image as ImageIcon, LogOut, Mail, User, X } from "lucide-react";
+import { Bell, Camera, ChevronRight, Image as ImageIcon, LogOut, Mail, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ScreenHeader } from "../components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { getMyPassengerProfile, upsertPassengerProfile } from "@/lib/repository";
-import { notificationPermission, requestWebPush, type PermissionState } from "@/lib/notifications/web-push";
 import { getNativePushStatus } from "@/lib/notifications/native-push";
 
 const APP_VERSION = "1.0.0";
@@ -19,19 +18,13 @@ export function Profile() {
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const loadedNameRef = useRef("");
-  const [notifPerm, setNotifPerm] = useState<PermissionState>("default");
-  const [notifBusy, setNotifBusy] = useState(false);
-  // Diagnóstico temporário, mas dessa vez como texto na tela (não alert()) —
-  // um alert() no meio do fluxo interrompe o encadeamento clique->pedido de
-  // permissão que o navegador exige (a tentativa anterior quebrava por causa
-  // disso). Texto simples não atrapalha nada e ainda mostra o que está
-  // acontecendo de verdade no aparelho.
-  const [notifDebug, setNotifDebug] = useState("");
+  // As notificações são 100% automáticas (FCM nativo, registrado sozinho no
+  // boot do app — ver App.tsx/native-push.ts). Web Push foi testado e
+  // confirmado que não funciona dentro do WebView do Android (Notification e
+  // PushManager ausentes), por isso não existe botão pra "ativar" aqui —
+  // só um indicador de que o registro deu certo.
   const [nativeStatus, setNativeStatus] = useState("");
 
-  // O registro nativo (FCM de verdade) roda em segundo plano desde o boot do
-  // app (App.tsx) — aqui só fica de olho no status pra mostrar na tela,
-  // atualizando por um tempo até ele terminar (sucesso ou erro).
   useEffect(() => {
     setNativeStatus(getNativePushStatus());
     const id = setInterval(() => setNativeStatus(getNativePushStatus()), 1000);
@@ -41,33 +34,6 @@ export function Profile() {
       clearTimeout(stop);
     };
   }, []);
-
-  function apiDebugLine() {
-    const sw = typeof window !== "undefined" && "serviceWorker" in navigator;
-    const pm = typeof window !== "undefined" && "PushManager" in window;
-    const notif = typeof window !== "undefined" && "Notification" in window;
-    return `serviceWorker=${sw} PushManager=${pm} Notification=${notif}`;
-  }
-
-  useEffect(() => {
-    setNotifPerm(notificationPermission());
-    setNotifDebug(apiDebugLine());
-  }, []);
-
-  async function toggleNotifications() {
-    if (!user?.id || notifPerm === "denied") return;
-    setNotifBusy(true);
-    setNotifDebug(apiDebugLine());
-    // requestWebPush roda direto aqui, sem nada assíncrono antes — só assim o
-    // navegador aceita mostrar a caixinha de permissão nativa.
-    requestWebPush(user.id)
-      .then((result) => {
-        setNotifPerm(result);
-        setNotifDebug(`${apiDebugLine()} · resultado=${result}`);
-      })
-      .catch((e) => setNotifDebug(`erro=${e}`))
-      .finally(() => setNotifBusy(false));
-  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -199,25 +165,17 @@ export function Profile() {
         <div>
           <p className="section-label mb-2 px-1">Configurações</p>
           <div className="list-card">
-            <SettingsRow
-              icon={notifPerm === "granted" ? <Bell size={16} /> : <BellOff size={16} />}
-              label={
-                notifPerm === "granted"
-                  ? "Notificações ativadas"
-                  : notifPerm === "denied"
-                    ? "Notificações bloqueadas — ative nos ajustes do aparelho"
-                    : notifBusy
-                      ? "Ativando..."
-                      : "Ativar notificações de mensagens"
-              }
-              onClick={toggleNotifications}
-            />
-            {notifDebug && <p className="border-t border-[color:var(--color-hairline)] px-4 py-2 text-[11px] text-muted-foreground">{notifDebug}</p>}
-            {nativeStatus && (
-              <p className="border-t border-[color:var(--color-hairline)] px-4 py-2 text-[11px] text-muted-foreground">
-                FCM nativo: {nativeStatus}
-              </p>
-            )}
+            <div className="flex items-center gap-3 p-4">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                <Bell size={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-medium">Notificações de mensagens</p>
+                <p className="mt-0.5 truncate text-label">
+                  {nativeStatus.includes("sucesso") ? "Ativadas" : nativeStatus || "Ativando…"}
+                </p>
+              </div>
+            </div>
             <div className="border-t border-[color:var(--color-hairline)]">
               <SettingsRow
                 icon={<LogOut size={16} />}

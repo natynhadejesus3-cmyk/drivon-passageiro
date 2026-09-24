@@ -182,28 +182,6 @@ export async function saveFcmToken(
   if (error) throw error;
 }
 
-export async function savePushDevice(
-  passengerId: string,
-  deviceId: string,
-  sub: { endpoint: string; p256dh: string; auth: string },
-  userAgent?: string,
-): Promise<void> {
-  // o mesmo endpoint não pode pertencer a dois aparelhos
-  await supabase.from("passenger_push_devices").delete().eq("endpoint", sub.endpoint).neq("device_id", deviceId);
-  const { error } = await supabase.from("passenger_push_devices").upsert(
-    {
-      device_id: deviceId,
-      passenger_id: passengerId,
-      endpoint: sub.endpoint,
-      p256dh: sub.p256dh,
-      auth: sub.auth,
-      user_agent: userAgent ?? null,
-    },
-    { onConflict: "device_id" },
-  );
-  if (error) throw error;
-}
-
 /**
  * Garante que o motorista sempre tenha ALGUM nome pra ver, mesmo que o
  * passageiro nunca abra a tela de perfil manualmente — usa o nome que ele já
