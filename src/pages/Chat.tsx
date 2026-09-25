@@ -27,6 +27,38 @@ function nowInputValue() {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+// Rascunho do pedido de corrida salvo localmente, por motorista -- sair da
+// conversa (trocar de aba) e voltar não pode apagar o que já foi preenchido.
+type RideDraft = {
+  origin: string;
+  selectedOrigin: AddressSuggestion | null;
+  destination: string;
+  selectedAddress: AddressSuggestion | null;
+  rideDate: string;
+  rideTime: string;
+};
+
+function rideDraftKey(linkId: string) {
+  return `drivon:draft:ride-request:${linkId}`;
+}
+
+function loadRideDraft(linkId: string): Partial<RideDraft> {
+  try {
+    const raw = window.localStorage.getItem(rideDraftKey(linkId));
+    return raw ? (JSON.parse(raw) as Partial<RideDraft>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function clearRideDraft(linkId: string) {
+  try {
+    window.localStorage.removeItem(rideDraftKey(linkId));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function Chat() {
   const { linkId = "" } = useParams();
   const navigate = useNavigate();
@@ -35,12 +67,13 @@ export function Chat() {
   const { profile } = useDriverProfile(link?.driver_id);
   const { messages, refetch } = useMessages(linkId);
   const [text, setText] = useState("");
-  const [origin, setOrigin] = useState("");
-  const [selectedOrigin, setSelectedOrigin] = useState<AddressSuggestion | null>(null);
-  const [destination, setDestination] = useState("");
-  const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(null);
-  const [rideDate, setRideDate] = useState(todayInputValue);
-  const [rideTime, setRideTime] = useState(nowInputValue);
+  const [rideDraft] = useState(() => loadRideDraft(linkId));
+  const [origin, setOrigin] = useState(rideDraft.origin ?? "");
+  const [selectedOrigin, setSelectedOrigin] = useState<AddressSuggestion | null>(rideDraft.selectedOrigin ?? null);
+  const [destination, setDestination] = useState(rideDraft.destination ?? "");
+  const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(rideDraft.selectedAddress ?? null);
+  const [rideDate, setRideDate] = useState(rideDraft.rideDate ?? todayInputValue);
+  const [rideTime, setRideTime] = useState(rideDraft.rideTime ?? nowInputValue);
   const [location, setLocation] = useState<LocationContext | null>(null);
   const [locating, setLocating] = useState(false);
   const [locatingOrigin, setLocatingOrigin] = useState(false);
@@ -65,8 +98,9 @@ export function Chat() {
 
   function openRideRequest() {
     setAskingRide(true);
-    setRideDate(todayInputValue());
-    setRideTime(nowInputValue());
+    // Data/hora já vêm do rascunho restaurado (ou do padrão "agora" definido
+    // no primeiro carregamento) -- não mexe aqui pra não apagar o que a
+    // pessoa já tinha ajustado antes de sair e voltar pra conversa.
     // Melhor ordenação das sugestões por proximidade, e preenche a origem
     // automaticamente — se a pessoa negar a permissão, tudo isso continua
     // funcionando normalmente, só sem os dois.
@@ -95,6 +129,15 @@ export function Chat() {
     const id = setInterval(() => tick((t) => t + 1), 30_000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    const d: RideDraft = { origin, selectedOrigin, destination, selectedAddress, rideDate, rideTime };
+    try {
+      window.localStorage.setItem(rideDraftKey(linkId), JSON.stringify(d));
+    } catch {
+      /* ignore */
+    }
+  }, [linkId, origin, selectedOrigin, destination, selectedAddress, rideDate, rideTime]);
 
   if (linkLoading) return null;
 
@@ -126,6 +169,7 @@ export function Chat() {
       setDestination("");
       setSelectedAddress(null);
       setAskingRide(false);
+      clearRideDraft(linkId);
       refetch();
     } finally {
       setSending(false);
