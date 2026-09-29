@@ -27,6 +27,13 @@ export type ChatMessage = {
   is_ride_request: boolean;
   ride_confirmed: boolean;
   ride_id: string | null;
+  origin_label: string | null;
+  origin_lat: number | null;
+  origin_lng: number | null;
+  destination_label: string | null;
+  destination_lat: number | null;
+  destination_lng: number | null;
+  requested_at: string | null;
   read_at: string | null;
   created_at: string;
 };

@@ -92,11 +92,22 @@ export async function getMessages(linkId: string): Promise<ChatMessage[]> {
   return data ?? [];
 }
 
+export type RideRequestDetails = {
+  originLabel: string;
+  originLat: number;
+  originLng: number;
+  destinationLabel: string;
+  destinationLat: number;
+  destinationLng: number;
+  requestedAt: string;
+};
+
 export async function sendMessage(
   linkId: string,
   passengerId: string,
   body: string,
   isRideRequest = false,
+  rideRequest?: RideRequestDetails,
 ): Promise<ChatMessage> {
   const { data, error } = await supabase
     .from("chat_messages")
@@ -106,6 +117,13 @@ export async function sendMessage(
       sender_id: passengerId,
       body,
       is_ride_request: isRideRequest,
+      origin_label: rideRequest?.originLabel ?? null,
+      origin_lat: rideRequest?.originLat ?? null,
+      origin_lng: rideRequest?.originLng ?? null,
+      destination_label: rideRequest?.destinationLabel ?? null,
+      destination_lat: rideRequest?.destinationLat ?? null,
+      destination_lng: rideRequest?.destinationLng ?? null,
+      requested_at: rideRequest?.requestedAt ?? null,
     })
     .select()
     .single();

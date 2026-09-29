@@ -6,7 +6,7 @@ import { DriverAvatar } from "../components/DriverAvatar";
 import { useAuth } from "@/lib/auth-context";
 import { formatLastSeen, seenAgo } from "@/lib/format";
 import { useDriverProfile, useLink, useMessages } from "@/lib/hooks";
-import { getCachedDriverName, markRead, sendMessage } from "@/lib/repository";
+import { getCachedDriverName, markRead, sendMessage, type RideRequestDetails } from "@/lib/repository";
 import {
   resolveLocationContext,
   reverseGeocodeAddress,
@@ -155,15 +155,30 @@ export function Chat() {
   const driverName = profile?.full_name || getCachedDriverName(link.driver_id);
   const driverOnline = profile?.is_online ?? false;
 
+  // Exige endereço escolhido da lista (com coordenada real), não só texto
+  // digitado -- é isso que deixa a corrida nascer pronta pro motorista, sem
+  // ele precisar completar/corrigir nada depois de aceitar.
+  const originReady = !!selectedOrigin && selectedOrigin.label === origin;
+  const destinationReady = !!selectedAddress && selectedAddress.label === destination;
+
   async function submitRideRequest() {
-    if (!origin.trim() || !destination.trim() || !user) return;
+    if (!originReady || !destinationReady || !selectedOrigin || !selectedAddress || !user) return;
     setSending(true);
     try {
       const when = new Date(`${rideDate}T${rideTime}`);
       const dateLabel = when.toLocaleDateString("pt-BR");
       const timeLabel = when.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const body = `Você pode me buscar em ${origin.trim()} e me levar em ${destination.trim()} no dia ${dateLabel} às ${timeLabel}?`;
-      await sendMessage(linkId, user.id, body, true);
+      const rideRequest: RideRequestDetails = {
+        originLabel: selectedOrigin.label,
+        originLat: selectedOrigin.lat,
+        originLng: selectedOrigin.lng,
+        destinationLabel: selectedAddress.label,
+        destinationLat: selectedAddress.lat,
+        destinationLng: selectedAddress.lng,
+        requestedAt: when.toISOString(),
+      };
+      await sendMessage(linkId, user.id, body, true, rideRequest);
       setOrigin("");
       setSelectedOrigin(null);
       setDestination("");
@@ -331,9 +346,15 @@ export function Chat() {
               </label>
             </div>
 
+            {(origin.trim() && !originReady) || (destination.trim() && !destinationReady) ? (
+              <p className="mt-3 text-[11px] text-warning">
+                Escolha um endereço da lista pra origem e destino ficarem certinhos pro motorista.
+              </p>
+            ) : null}
+
             <button
               onClick={submitRideRequest}
-              disabled={!origin.trim() || !destination.trim() || sending}
+              disabled={!originReady || !destinationReady || sending}
               className="btn-primary mt-5 flex w-full items-center justify-center gap-2 disabled:opacity-40"
             >
               <Send size={16} />
