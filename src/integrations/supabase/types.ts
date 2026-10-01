@@ -50,6 +50,7 @@ export type DriverPublicProfile = {
   driver_id: string;
   full_name: string | null;
   avatar_url: string | null;
+  per_km: number;
   is_online: boolean;
   last_seen_at: string | null;
 };

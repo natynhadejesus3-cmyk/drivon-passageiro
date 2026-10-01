@@ -155,7 +155,7 @@ export async function getConfirmedRides(): Promise<ChatMessage[]> {
 export async function getDriverPublicProfile(driverId: string): Promise<DriverPublicProfile | null> {
   const { data, error } = await supabase
     .from("driver_public_profile")
-    .select("full_name, avatar_url, is_online, last_seen_at, driver_id")
+    .select("full_name, avatar_url, per_km, is_online, last_seen_at, driver_id")
     .eq("driver_id", driverId)
     .maybeSingle();
   if (error) throw error;

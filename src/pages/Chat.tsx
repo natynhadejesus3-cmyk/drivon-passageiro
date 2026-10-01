@@ -13,6 +13,11 @@ import {
   type LocationContext,
 } from "@/lib/services/location-service";
 import type { AddressSuggestion } from "@/lib/services/pelias-search-service";
+import { routeDistance } from "@/lib/routing";
+
+function formatMoney(v: number) {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -79,6 +84,8 @@ export function Chat() {
   const [locatingOrigin, setLocatingOrigin] = useState(false);
   const [askingRide, setAskingRide] = useState(false);
   const [sending, setSending] = useState(false);
+  const [estimate, setEstimate] = useState<{ distanceKm: number; price: number } | null>(null);
+  const [estimating, setEstimating] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   // Só pra forçar o "Visto há X minutos" a se atualizar sozinho com o tempo.
   const [, tick] = useState(0);
@@ -138,6 +145,39 @@ export function Chat() {
       /* ignore */
     }
   }, [linkId, origin, selectedOrigin, destination, selectedAddress, rideDate, rideTime]);
+
+  // Valor estimado da corrida: distância real (OSRM) x tarifa por km DESTE
+  // motorista especificamente (cada um pode cobrar um valor diferente, ver
+  // driver_public_profile.per_km) -- só calcula quando os dois endereços já
+  // têm coordenada confirmada (selecionados da lista, não só texto digitado).
+  useEffect(() => {
+    const ready =
+      !!selectedOrigin && selectedOrigin.label === origin && !!selectedAddress && selectedAddress.label === destination;
+    if (!ready || !selectedOrigin || !selectedAddress) {
+      setEstimate(null);
+      return;
+    }
+    let cancelled = false;
+    setEstimating(true);
+    routeDistance(
+      { lat: selectedOrigin.lat, lng: selectedOrigin.lng },
+      { lat: selectedAddress.lat, lng: selectedAddress.lng },
+    )
+      .then((r) => {
+        if (cancelled) return;
+        const perKm = profile?.per_km ?? 2.8;
+        setEstimate({ distanceKm: r.distance_km, price: r.distance_km * perKm });
+      })
+      .catch(() => {
+        if (!cancelled) setEstimate(null);
+      })
+      .finally(() => {
+        if (!cancelled) setEstimating(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOrigin, origin, selectedAddress, destination, profile?.per_km]);
 
   if (linkLoading) return null;
 
@@ -351,6 +391,26 @@ export function Chat() {
                 Escolha um endereço da lista pra origem e destino ficarem certinhos pro motorista.
               </p>
             ) : null}
+
+            {originReady && destinationReady && (estimating || estimate) && (
+              <div className="relative mt-4 overflow-hidden rounded-2xl bg-primary-soft p-5 text-center">
+                <p className="section-label text-primary/70">Valor estimado</p>
+                {estimating && !estimate ? (
+                  <p className="mt-1 text-[13px] text-primary/70">Calculando...</p>
+                ) : (
+                  estimate && (
+                    <>
+                      <p className="mt-0.5 text-[32px] font-black leading-none tracking-tight text-primary">
+                        {formatMoney(estimate.price)}
+                      </p>
+                      <p className="mt-1.5 text-[11px] text-primary/70">
+                        {estimate.distanceKm.toFixed(1).replace(".", ",")} km · tarifa de {driverName.split(" ")[0]}
+                      </p>
+                    </>
+                  )
+                )}
+              </div>
+            )}
 
             <button
               onClick={submitRideRequest}
