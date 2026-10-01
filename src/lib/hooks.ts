@@ -77,7 +77,7 @@ export function useMessages(linkId: string | undefined) {
  * Postgres (só tabelas base podem), então atualiza por polling — suficiente
  * pra "online agora" não ficar visivelmente desatualizado numa conversa aberta.
  */
-export function useDriverProfile(driverId: string | undefined, pollMs = 20_000) {
+export function useDriverProfile(driverId: string | undefined, pollMs = 8_000) {
   const [profile, setProfile] = useState<DriverPublicProfile | null>(null);
 
   const refetch = useCallback(() => {
