@@ -103,6 +103,38 @@ export function Chat() {
       .finally(() => setLocatingOrigin(false));
   }
 
+  // Instante da última mudança de layout (teclado abrindo/fechando). Um toque
+  // logo depois disso costuma ser "clique fantasma": o dedo apertou uma coisa
+  // e, quando o toque termina, a tela já mexeu e o clique cai em outro lugar --
+  // era assim que o pedido de corrida fechava sozinho enquanto a pessoa
+  // preenchia os campos.
+  const lastLayoutShiftRef = useRef(0);
+  useEffect(() => {
+    if (!askingRide) return;
+    const mark = () => {
+      lastLayoutShiftRef.current = Date.now();
+    };
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", mark);
+    window.addEventListener("resize", mark);
+    return () => {
+      vv?.removeEventListener("resize", mark);
+      window.removeEventListener("resize", mark);
+    };
+  }, [askingRide]);
+
+  // Só o X fecha a folha (e nunca por um clique fantasma). Tocar fora dela
+  // apenas tira o teclado -- antes fechava tudo e a pessoa tinha que reabrir.
+  function closeRideRequest() {
+    if (Date.now() - lastLayoutShiftRef.current < 350) return;
+    setAskingRide(false);
+  }
+
+  function dismissKeyboard() {
+    const el = document.activeElement as HTMLElement | null;
+    if (el && el !== document.body) el.blur();
+  }
+
   function openRideRequest() {
     setAskingRide(true);
     // Data/hora já vêm do rascunho restaurado (ou do padrão "agora" definido
@@ -301,12 +333,19 @@ export function Chat() {
 
       {askingRide && (
         <div className="absolute inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setAskingRide(false)} />
-          <div className="relative max-h-[88%] overflow-y-auto rounded-t-3xl border-t border-[color:var(--color-hairline)] bg-card-elevated px-5 pb-6 pt-5">
+          <div className="absolute inset-0 bg-black/60" onClick={dismissKeyboard} />
+          <div
+            className="relative max-h-[88%] overflow-y-auto rounded-t-3xl border-t border-[color:var(--color-hairline)] bg-card-elevated px-5 pb-6 pt-5"
+            // Tocar num espaço vazio da folha também só fecha o teclado.
+            onPointerDown={(e) => {
+              if (!(e.target as HTMLElement).closest("input, button, label, textarea, a")) dismissKeyboard();
+            }}
+          >
             <div className="mb-4 flex items-center justify-between">
               <p className="text-title">Pedir corrida</p>
               <button
-                onClick={() => setAskingRide(false)}
+                onClick={closeRideRequest}
+                aria-label="Fechar"
                 className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground"
               >
                 <X size={18} />

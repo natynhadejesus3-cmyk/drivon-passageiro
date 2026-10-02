@@ -248,14 +248,14 @@ export function AddressAutocomplete({
                 <button
                   key={s.id}
                   type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    pick(s);
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    pick(s);
-                  }}
+                  // mousedown não pode tirar o foco do campo: se o teclado
+                  // fechasse aqui, a tela mexeria no meio do toque e o clique
+                  // cairia em outro lugar (era isso que fechava o pedido de
+                  // corrida). A escolha acontece no clique, com o dedo já
+                  // levantado -- e escolher sem querer ao rolar a lista, que
+                  // acontecia com onTouchStart, também some.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pick(s)}
                   className="flex w-full items-start gap-3 border-b border-[color:var(--color-hairline)] px-4 py-3 text-left last:border-b-0 hover:bg-foreground/5 active:bg-foreground/10"
                 >
                   <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-primary-soft">
