@@ -14,6 +14,8 @@ import {
 } from "@/lib/services/location-service";
 import type { AddressSuggestion } from "@/lib/services/pelias-search-service";
 import { routeDistance } from "@/lib/routing";
+import { useTypingIndicator } from "@/lib/use-typing-indicator";
+import { TypingBubble } from "../components/TypingBubble";
 
 function formatMoney(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -154,15 +156,22 @@ export function Chat() {
     }
   }
 
+  const { otherTyping, notifyTyping, stopTyping, clearOtherTyping } = useTypingIndicator(linkId || undefined, "passenger");
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length]);
+  }, [messages.length, otherTyping]);
 
   useEffect(() => {
     messages
       .filter((m) => m.sender_role === "driver" && !m.read_at)
       .forEach((m) => markRead(m.id).catch(() => {}));
   }, [messages]);
+
+  // A mensagem do motorista chegou: o "digitando" some na hora.
+  useEffect(() => {
+    if (messages[messages.length - 1]?.sender_role === "driver") clearOtherTyping();
+  }, [messages, clearOtherTyping]);
 
   useEffect(() => {
     const id = setInterval(() => tick((t) => t + 1), 30_000);
@@ -265,6 +274,7 @@ export function Chat() {
 
   async function submitText() {
     if (!text.trim() || !user) return;
+    stopTyping();
     setSending(true);
     try {
       await sendMessage(linkId, user.id, text.trim(), false);
@@ -285,7 +295,13 @@ export function Chat() {
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold leading-tight">{driverName}</p>
           <p className="truncate text-label">
-            {driverOnline ? <span className="text-success">Online agora</span> : formatLastSeen(profile?.last_seen_at)}
+            {otherTyping ? (
+              <span className="text-success">digitando…</span>
+            ) : driverOnline ? (
+              <span className="text-success">Online agora</span>
+            ) : (
+              formatLastSeen(profile?.last_seen_at)
+            )}
           </p>
         </div>
       </header>
@@ -328,6 +344,7 @@ export function Chat() {
           if (!last || last.sender_role !== "passenger" || !last.read_at) return null;
           return <p className="pr-1 text-right text-[10px] text-muted-foreground">{seenAgo(last.read_at)}</p>;
         })()}
+        {otherTyping && <TypingBubble />}
         <div ref={bottomRef} />
       </div>
 
@@ -473,12 +490,18 @@ export function Chat() {
         </button>
         <input
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            notifyTyping(e.target.value.trim().length > 0);
+          }}
+          onBlur={stopTyping}
           onKeyDown={(e) => e.key === "Enter" && submitText()}
           placeholder="Mensagem"
           className="min-w-0 flex-1 rounded-full border border-[color:var(--color-hairline)] bg-card px-4 py-2.5 text-[15px] outline-none focus:border-primary"
         />
         <button
+          // Enviar não pode tirar o foco do campo (o teclado fecharia e a tela mexeria).
+          onMouseDown={(e) => e.preventDefault()}
           onClick={submitText}
           disabled={!text.trim() || sending}
           className="shrink-0 rounded-full bg-secondary p-2.5 text-foreground disabled:opacity-40"

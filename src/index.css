@@ -219,6 +219,11 @@
 }
 
 /* ---------- Animations ---------- */
+/* "Fulano está digitando": três pontinhos que sobem um depois do outro (TypingBubble). */
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
 @keyframes screen-in {
   0% { opacity: 0; transform: translateY(8px); }
   100% { opacity: 1; transform: translateY(0); }
