@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
+import { ArrowLeft, Calendar, Check, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
@@ -330,8 +330,14 @@ export function Chat() {
               >
                 <p>{m.body}</p>
                 {isRideEvent && (
-                  <p className="mt-1 text-[10px] font-semibold uppercase opacity-80">
-                    {m.ride_confirmed ? "Corrida confirmada" : "Pedido de corrida · aguardando"}
+                  <p className="mt-1 flex items-center gap-1 text-[10px] font-bold uppercase opacity-90">
+                    {m.ride_confirmed ? (
+                      <>
+                        <Check size={12} strokeWidth={3} /> Corrida aceita
+                      </>
+                    ) : (
+                      "Pedido de corrida · aguardando"
+                    )}
                   </p>
                 )}
                 <p className="mt-1 text-[10px] opacity-70">{formatTime(m.created_at)}</p>

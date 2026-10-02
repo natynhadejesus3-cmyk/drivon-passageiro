@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
+import { RideAcceptedCelebration } from "./components/RideAcceptedCelebration";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { usePresence } from "@/lib/use-presence";
 import { initNativePush } from "@/lib/notifications/native-push";
@@ -36,15 +37,20 @@ function AppRoutes() {
   }
 
   return (
-    <AppShell hideNav={hideNav}>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/agenda" element={<Agenda />} />
-        <Route path="/pair" element={<Pair />} />
-        <Route path="/chat/:linkId" element={<Chat />} />
-        <Route path="/profile" element={<Profile />} />
-      </Routes>
-    </AppShell>
+    <>
+      <AppShell hideNav={hideNav}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/agenda" element={<Agenda />} />
+          <Route path="/pair" element={<Pair />} />
+          <Route path="/chat/:linkId" element={<Chat />} />
+          <Route path="/profile" element={<Profile />} />
+        </Routes>
+      </AppShell>
+      {/* Fora do AppShell de propósito: o <main> dele tem animação com
+          transform, que faria o "fixed" do aviso prender nele em vez da tela. */}
+      <RideAcceptedCelebration />
+    </>
   );
 }
 
