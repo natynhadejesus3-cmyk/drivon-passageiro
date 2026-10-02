@@ -1,5 +1,6 @@
 import { CalendarCheck, Check, MapPin } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Confetti } from "./Confetti";
 import { DriverAvatar } from "./DriverAvatar";
@@ -18,6 +19,8 @@ export type Accepted = {
 };
 
 const seenKey = (userId: string) => `drivon:ride-accepted-seen:v1:${userId}`;
+// Na primeira checagem, só pedidos mais antigos que isso contam como histórico.
+const FRESH_WINDOW_MS = 15 * 60_000;
 
 function loadSeen(userId: string): Set<string> | null {
   try {
@@ -71,10 +74,14 @@ export function RideAcceptedCelebration() {
     checkingRef.current = true;
     try {
       const rides = await getConfirmedRides();
-      const seen = loadSeen(userId);
+      let seen = loadSeen(userId);
       if (!seen) {
-        saveSeen(userId, new Set(rides.map((r) => r.id)));
-        return;
+        // Primeira vez neste aparelho: o histórico antigo não comemora, mas um
+        // aceite de poucos minutos atrás sim (senão quem acabou de atualizar o
+        // app e testa logo em seguida nunca veria o aviso).
+        const cutoff = Date.now() - FRESH_WINDOW_MS;
+        seen = new Set(rides.filter((r) => new Date(r.created_at).getTime() < cutoff).map((r) => r.id));
+        saveSeen(userId, seen);
       }
       const fresh = rides.filter((r) => !seen.has(r.id));
       if (fresh.length === 0) return;
@@ -129,7 +136,7 @@ export function RideAcceptedCelebration() {
       .channel(`ride-accepted:${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chat_messages" }, () => void check())
       .subscribe();
-    const poll = setInterval(() => void check(), 30_000);
+    const poll = setInterval(() => void check(), 15_000);
     const onVisible = () => document.visibilityState === "visible" && void check();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
@@ -172,7 +179,9 @@ export function AcceptedModal({
   onClose: () => void;
   onSeeAgenda: () => void;
 }) {
-  return (
+  // Portal no <body>: telas dentro do <main> (animação com transform) prendem
+  // elementos "fixed" nele -- o aviso precisa cobrir a tela inteira sempre.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -228,6 +237,7 @@ export function AcceptedModal({
           {more > 0 ? `Fechar (mais ${more})` : "Fechar"}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

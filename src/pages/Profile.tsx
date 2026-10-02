@@ -1,6 +1,9 @@
-import { Bell, Camera, ChevronRight, Image as ImageIcon, LogOut, Mail, User, X } from "lucide-react";
+import { Bell, Camera, ChevronRight, Image as ImageIcon, LogOut, Mail, PartyPopper, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
+import { AcceptedModal } from "../components/RideAcceptedCelebration";
+import { runningBuildId } from "@/lib/build-version";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
@@ -11,6 +14,8 @@ const APP_VERSION = "1.0.0";
 
 export function Profile() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -178,6 +183,13 @@ export function Profile() {
             </div>
             <div className="border-t border-[color:var(--color-hairline)]">
               <SettingsRow
+                icon={<PartyPopper size={16} />}
+                label="Ver o aviso de corrida aceita"
+                onClick={() => setPreviewOpen(true)}
+              />
+            </div>
+            <div className="border-t border-[color:var(--color-hairline)]">
+              <SettingsRow
                 icon={<LogOut size={16} />}
                 label="Sair da conta"
                 destructive
@@ -187,8 +199,30 @@ export function Profile() {
           </div>
         </div>
 
-        <p className="pt-2 text-center text-label opacity-60">Drivon Passageiro · v{APP_VERSION}</p>
+        <p className="pt-2 text-center text-label opacity-60">
+          Drivon Passageiro · v{APP_VERSION} · build {runningBuildId() ?? "dev"}
+        </p>
       </div>
+
+      {previewOpen && (
+        <AcceptedModal
+          item={{
+            id: "preview",
+            linkId: "",
+            driverName: "Seu motorista",
+            avatarUrl: null,
+            when: new Date(Date.now() + 60 * 60_000).toISOString(),
+            origin: "Rua das Flores, 120",
+            destination: "Shopping Center",
+          }}
+          more={0}
+          onClose={() => setPreviewOpen(false)}
+          onSeeAgenda={() => {
+            setPreviewOpen(false);
+            navigate("/agenda");
+          }}
+        />
+      )}
 
       {pickerOpen && (
         <div

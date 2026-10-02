@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import { RideAcceptedCelebration } from "./components/RideAcceptedCelebration";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { usePresence } from "@/lib/use-presence";
+import { startVersionWatcher } from "@/lib/build-version";
 import { initNativePush } from "@/lib/notifications/native-push";
 import { Agenda } from "./pages/Agenda";
 import { Auth } from "./pages/Auth";
@@ -19,6 +20,7 @@ function AppRoutes() {
   const hideNav = location.pathname.startsWith("/chat/") || location.pathname === "/pair";
 
   usePresence();
+  useEffect(() => startVersionWatcher(), []);
 
   useEffect(() => {
     if (!session?.user.id) return;
