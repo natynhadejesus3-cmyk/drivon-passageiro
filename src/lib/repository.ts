@@ -220,7 +220,8 @@ export async function setPassengerPresence(userId: string, online: boolean): Pro
   if (error) throw error;
 }
 
-export function subscribeToChat(linkId: string, onChange: () => void): RealtimeChannel {
+export function subscribeToChat(linkId: string, onChange: () => void, onReconnect?: () => void): RealtimeChannel {
+  let subscribedOnce = false;
   return supabase
     .channel(`chat:${linkId}`)
     .on(
@@ -228,5 +229,12 @@ export function subscribeToChat(linkId: string, onChange: () => void): RealtimeC
       { event: "*", schema: "public", table: "chat_messages", filter: `link_id=eq.${linkId}` },
       onChange,
     )
-    .subscribe();
+    .subscribe((status) => {
+      // Reconectou depois de cair: o tempo real não reenvia o que passou
+      // enquanto estava fora do ar, então quem chamou busca de novo.
+      if (status === "SUBSCRIBED") {
+        if (subscribedOnce) onReconnect?.();
+        subscribedOnce = true;
+      }
+    });
 }

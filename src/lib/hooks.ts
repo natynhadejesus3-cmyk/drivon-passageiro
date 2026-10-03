@@ -63,10 +63,25 @@ export function useMessages(linkId: string | undefined) {
 
   useEffect(() => {
     if (!linkId) return;
-    const channel = subscribeToChat(linkId, refetch);
+    const channel = subscribeToChat(linkId, refetch, refetch);
     return () => {
       channel.unsubscribe();
     };
+  }, [linkId, refetch]);
+
+  // Voltou pro app (tocou numa notificação, trocou de app): busca de novo. O
+  // tempo real cai quando o Android suspende o app e não reenvia o que passou
+  // nesse meio-tempo -- sem isso a mensagem nova só aparecia depois de sair da
+  // conversa e entrar de novo.
+  useRefetchOnFocus(refetch);
+
+  // Rede de segurança com a conversa aberta, caso o tempo real falhe.
+  useEffect(() => {
+    if (!linkId) return;
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") refetch();
+    }, 6_000);
+    return () => clearInterval(id);
   }, [linkId, refetch]);
 
   return { messages, loading, refetch };
