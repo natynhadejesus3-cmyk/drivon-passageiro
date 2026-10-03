@@ -25,8 +25,21 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
+// Data de HOJE no relógio do celular (YYYY-MM-DD). Não pode ser
+// toISOString().slice(0, 10): isso dá a data em UTC, que no Brasil já vira
+// "amanhã" depois das 21h -- aí o campo de data não deixava escolher hoje.
 function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Tolerância pro "agora": o horário padrão é o momento em que a pessoa abriu o
+// formulário, e até enviar já passaram alguns minutos.
+const PAST_TOLERANCE_MS = 5 * 60_000;
+
+function isPastRequest(date: string, time: string) {
+  const t = new Date(`${date}T${time}`).getTime();
+  return Number.isFinite(t) && t < Date.now() - PAST_TOLERANCE_MS;
 }
 
 function nowInputValue() {
@@ -141,7 +154,13 @@ export function Chat() {
     setAskingRide(true);
     // Data/hora já vêm do rascunho restaurado (ou do padrão "agora" definido
     // no primeiro carregamento) -- não mexe aqui pra não apagar o que a
-    // pessoa já tinha ajustado antes de sair e voltar pra conversa.
+    // pessoa já tinha ajustado antes de sair e voltar pra conversa. Só
+    // corrige rascunho velho que ficou no passado (ex.: de ontem): esse
+    // volta pra "agora".
+    if (isPastRequest(rideDate, rideTime)) {
+      setRideDate(todayInputValue());
+      setRideTime(nowInputValue());
+    }
     // Melhor ordenação das sugestões por proximidade, e preenche a origem
     // automaticamente — se a pessoa negar a permissão, tudo isso continua
     // funcionando normalmente, só sem os dois.
@@ -241,9 +260,12 @@ export function Chat() {
   // ele precisar completar/corrigir nada depois de aceitar.
   const originReady = !!selectedOrigin && selectedOrigin.label === origin;
   const destinationReady = !!selectedAddress && selectedAddress.label === destination;
+  // Hoje já pode escolher; só horário que já passou não (não dá pra pedir
+  // uma corrida pro passado).
+  const requestInPast = isPastRequest(rideDate, rideTime);
 
   async function submitRideRequest() {
-    if (!originReady || !destinationReady || !selectedOrigin || !selectedAddress || !user) return;
+    if (!originReady || !destinationReady || !selectedOrigin || !selectedAddress || !user || requestInPast) return;
     setSending(true);
     try {
       const when = new Date(`${rideDate}T${rideTime}`);
@@ -448,6 +470,12 @@ export function Chat() {
               </label>
             </div>
 
+            {requestInPast && (
+              <p className="mt-3 text-[11px] text-warning">
+                Esse horário já passou — escolha um horário a partir de agora.
+              </p>
+            )}
+
             {(origin.trim() && !originReady) || (destination.trim() && !destinationReady) ? (
               <p className="mt-3 text-[11px] text-warning">
                 Escolha um endereço da lista pra origem e destino ficarem certinhos pro motorista.
@@ -476,7 +504,7 @@ export function Chat() {
 
             <button
               onClick={submitRideRequest}
-              disabled={!originReady || !destinationReady || sending}
+              disabled={!originReady || !destinationReady || sending || requestInPast}
               className="btn-primary mt-5 flex w-full items-center justify-center gap-2 disabled:opacity-40"
             >
               <Send size={16} />
