@@ -1,4 +1,4 @@
-import { CalendarCheck, Check, MapPin } from "lucide-react";
+import { CalendarCheck, Check, Flag, MapPin } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -43,7 +43,8 @@ function whenLabel(iso: string) {
   const d = new Date(iso);
   const day = d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" });
   const time = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  return `${day} · ${time}`;
+  // Só a primeira letra maiúscula ("Sexta-feira", não "Sexta-Feira").
+  return `${day.charAt(0).toUpperCase()}${day.slice(1)} · ${time}`;
 }
 
 /**
@@ -167,6 +168,21 @@ export function RideAcceptedCelebration() {
   );
 }
 
+/** Uma linha do cartão: ícone fixo à esquerda e texto que quebra em várias linhas. */
+function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="mt-0.5 line-clamp-3 break-words text-[14px] font-medium leading-snug">{children}</p>
+      </div>
+    </div>
+  );
+}
+
 /** Parte visual do aviso (separada da lógica pra poder ser vista/testada sozinha). */
 export function AcceptedModal({
   item: current,
@@ -191,51 +207,67 @@ export function AcceptedModal({
     >
       <Confetti key={current.id} />
 
+      {/* Nunca passa da altura da tela (celular baixo / teclado) -- se faltar
+          espaço, o cartão rola em vez de cortar o botão de baixo. */}
       <div
         key={current.id}
-        className="card-elevated relative z-[205] w-full max-w-sm px-6 pb-6 pt-8 text-center"
+        className="card-elevated relative z-[205] max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto px-5 pb-5 pt-7 text-center"
         style={{ animation: "pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
       >
-        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-success/15">
-          <div className="grid h-14 w-14 place-items-center rounded-full bg-success text-white shadow-[0_8px_30px_-6px_rgba(34,197,94,0.7)]">
-            <Check size={32} strokeWidth={3.2} />
+        <div className="mx-auto grid h-[72px] w-[72px] place-items-center rounded-full bg-success/15">
+          <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-success text-white shadow-[0_8px_30px_-6px_rgba(34,197,94,0.7)]">
+            <Check size={30} strokeWidth={3.2} />
           </div>
         </div>
 
-        <h2 className="mt-5 text-[26px] font-black leading-tight tracking-tight">Corrida aceita! 🎉</h2>
-        <p className="mt-1.5 text-body text-muted-foreground">
+        <h2 className="mt-4 text-2xl font-black leading-tight tracking-tight">Corrida aceita! 🎉</h2>
+        <p className="mt-1 text-body text-muted-foreground">
           <span className="font-semibold text-foreground">{current.driverName}</span> confirmou o seu pedido.
         </p>
 
-        <div className="mt-5 flex items-center gap-3 rounded-2xl border border-[color:var(--color-hairline)] bg-background p-3 text-left">
-          <DriverAvatar name={current.driverName} avatarUrl={current.avatarUrl} size={44} />
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-label capitalize">
-              <CalendarCheck size={13} className="shrink-0 text-primary" />
-              <span className="truncate">{whenLabel(current.when)}</span>
-            </p>
-            {(current.origin || current.destination) && (
-              <p className="mt-1 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">
-                <MapPin size={13} className="mt-0.5 shrink-0 text-primary" />
-                <span className="min-w-0">
-                  {current.origin && <span className="block truncate">{current.origin}</span>}
-                  {current.destination && <span className="block truncate">→ {current.destination}</span>}
-                </span>
-              </p>
+        {/* Os endereços quebram em mais de uma linha (nada de "…" cortando
+            o endereço): cada dado em uma linha própria, com o mesmo respiro. */}
+        <div className="mt-4 rounded-2xl border border-[color:var(--color-hairline)] bg-background p-3.5 text-left">
+          <div className="flex items-center gap-3">
+            <DriverAvatar name={current.driverName} avatarUrl={current.avatarUrl} size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="break-words font-semibold leading-tight">{current.driverName}</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">Seu motorista</p>
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-3 border-t border-[color:var(--color-hairline)] pt-3">
+            <InfoRow icon={<CalendarCheck size={15} />} label="Quando">
+              {whenLabel(current.when)}
+            </InfoRow>
+            {current.origin && (
+              <InfoRow icon={<MapPin size={15} />} label="Saída">
+                {current.origin}
+              </InfoRow>
+            )}
+            {current.destination && (
+              <InfoRow icon={<Flag size={15} />} label="Destino">
+                {current.destination}
+              </InfoRow>
             )}
           </div>
         </div>
 
-        <p className="mt-4 text-[12px] text-muted-foreground">
+        <p className="mt-3.5 text-[12px] leading-snug text-muted-foreground">
           Ela já está na sua agenda — você recebe um aviso antes do horário.
         </p>
 
-        <button onClick={onSeeAgenda} className="btn-primary mt-5 flex w-full items-center justify-center">
-          Ver na agenda
-        </button>
-        <button onClick={onClose} className="mt-2 w-full py-2.5 text-[13px] font-semibold text-muted-foreground">
-          {more > 0 ? `Fechar (mais ${more})` : "Fechar"}
-        </button>
+        {/* Botões presos no rodapé do cartão: em tela baixa o cartão rola, mas
+            "Ver na agenda" e "Fechar" ficam sempre à vista. O -mx/-mb cobre o
+            padding do cartão. */}
+        <div className="sticky bottom-0 -mx-5 -mb-5 mt-3 bg-card px-5 pb-5 pt-2">
+          <button onClick={onSeeAgenda} className="btn-primary flex w-full items-center justify-center">
+            Ver na agenda
+          </button>
+          <button onClick={onClose} className="mt-1 w-full py-2.5 text-[13px] font-semibold text-muted-foreground">
+            {more > 0 ? `Fechar (mais ${more})` : "Fechar"}
+          </button>
+        </div>
       </div>
     </div>,
     document.body,

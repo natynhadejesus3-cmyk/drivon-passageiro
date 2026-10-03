@@ -47,6 +47,79 @@ function tone(ms: number) {
 
 type Item = { ride: ChatMessage; at: number };
 
+function RouteLine({ filled, children }: { filled?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span
+        className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${
+          filled ? "bg-primary" : "border-2 border-muted-foreground"
+        }`}
+      />
+      {/* Endereço quebra em até 3 linhas (não corta com "…" numa linha só). */}
+      <p className="line-clamp-3 min-w-0 flex-1 break-words text-[13px] leading-snug text-muted-foreground">{children}</p>
+    </div>
+  );
+}
+
+/** Cartão de uma corrida confirmada na Agenda (separado da lista pra ser testado sozinho). */
+export function AgendaRideCard({
+  driverName,
+  linkId,
+  body,
+  originLabel,
+  destinationLabel,
+  at,
+  now,
+  isPast,
+}: {
+  driverName: string;
+  linkId: string;
+  body: string;
+  originLabel: string | null;
+  destinationLabel: string | null;
+  at: number;
+  now: number;
+  isPast: boolean;
+}) {
+  const ms = at - now;
+  const t = tone(ms);
+  return (
+    <Link to={`/chat/${linkId}`} className={`card-elevated block p-4 ${isPast ? "opacity-60" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="break-words font-semibold leading-tight">{driverName}</p>
+          <p className="mt-1 text-label capitalize">{dayLabel(at, now)}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[22px] font-black leading-none tracking-tight">{timeLabel(at)}</p>
+          {isPast ? (
+            <p className="mt-1.5 text-[10px] font-bold text-muted-foreground">ANTERIOR</p>
+          ) : (
+            <p className={`mt-1.5 flex items-center justify-end gap-1 whitespace-nowrap text-[11px] font-bold ${t.text}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
+              {countdown(ms)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {originLabel || destinationLabel ? (
+        <div className="mt-3 space-y-2 border-t border-[color:var(--color-hairline)] pt-3">
+          {originLabel && <RouteLine filled>{originLabel}</RouteLine>}
+          {destinationLabel && <RouteLine>{destinationLabel}</RouteLine>}
+        </div>
+      ) : (
+        <p className="mt-3 break-words border-t border-[color:var(--color-hairline)] pt-3 text-label">{body}</p>
+      )}
+
+      <p className="mt-3 flex items-center gap-1 text-[10px] font-bold text-success">
+        <span className="h-1.5 w-1.5 rounded-full bg-success" />
+        CONFIRMADA
+      </p>
+    </Link>
+  );
+}
+
 export function Agenda() {
   const { links } = useLinks();
   const { rides, refetch } = useConfirmedRides();
@@ -70,51 +143,18 @@ export function Agenda() {
 
   function card({ ride, at }: Item, isPast: boolean) {
     const driverId = driverIdByLink.get(ride.link_id);
-    const driverName = driverId ? getCachedDriverName(driverId) : "Motorista";
-    const ms = at - now;
-    const t = tone(ms);
     return (
-      <Link
+      <AgendaRideCard
         key={ride.id}
-        to={`/chat/${ride.link_id}`}
-        className={`card-elevated block p-4 ${isPast ? "opacity-60" : ""}`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate font-semibold">{driverName}</p>
-            <p className="mt-0.5 text-label capitalize">{dayLabel(at, now)}</p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[22px] font-black leading-none tracking-tight">{timeLabel(at)}</p>
-            {isPast ? (
-              <p className="mt-1.5 text-[10px] font-bold text-muted-foreground">ANTERIOR</p>
-            ) : (
-              <p className={`mt-1.5 flex items-center justify-end gap-1 text-[11px] font-bold ${t.text}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
-                {countdown(ms)}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {ride.origin_label || ride.destination_label ? (
-          <div className="mt-3 space-y-1 border-t border-[color:var(--color-hairline)] pt-3 text-label">
-            {ride.origin_label && (
-              <p className="truncate">
-                <span className="text-primary">•</span> {ride.origin_label}
-              </p>
-            )}
-            {ride.destination_label && <p className="truncate">◦ {ride.destination_label}</p>}
-          </div>
-        ) : (
-          <p className="mt-3 border-t border-[color:var(--color-hairline)] pt-3 text-label">{ride.body}</p>
-        )}
-
-        <p className="mt-3 flex items-center gap-1 text-[10px] font-bold text-success">
-          <span className="h-1.5 w-1.5 rounded-full bg-success" />
-          CONFIRMADA
-        </p>
-      </Link>
+        driverName={driverId ? getCachedDriverName(driverId) : "Motorista"}
+        linkId={ride.link_id}
+        body={ride.body}
+        originLabel={ride.origin_label}
+        destinationLabel={ride.destination_label}
+        at={at}
+        now={now}
+        isPast={isPast}
+      />
     );
   }
 
