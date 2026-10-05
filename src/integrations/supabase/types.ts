@@ -134,6 +134,11 @@ export type Database = {
         Args: { p_code: string; p_passenger_display_name?: string | null };
         Returns: PairWithDriverResult[];
       };
+      // true = e-mail de caixa temporária (pode ser chamada sem login; só devolve sim/não).
+      is_disposable_email: {
+        Args: { p_email: string };
+        Returns: boolean;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

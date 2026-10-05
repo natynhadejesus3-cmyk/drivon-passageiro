@@ -18,6 +18,19 @@ export function Auth() {
     setLoading(true);
     try {
       if (mode === "signup") {
+        // E-mail de caixa temporária (ex.: hudzer.com) não é aceito: pergunta ao
+        // banco ANTES de enviar o cadastro, pra dar uma mensagem clara. Se a
+        // pergunta falhar (sem rede, função ainda não criada) segue normal -- o
+        // banco também barra na hora de criar a conta.
+        try {
+          const { data: temporary } = await supabase.rpc("is_disposable_email", { p_email: email.trim() });
+          if (temporary === true) {
+            setError("Esse tipo de e-mail temporário não é aceito. Use o seu e-mail pessoal (Gmail, Outlook, etc.).");
+            return;
+          }
+        } catch {
+          /* o banco confere de novo ao criar a conta */
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -31,7 +44,13 @@ export function Auth() {
         if (error) throw error;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível continuar. Tente de novo.");
+      const msg = err instanceof Error ? err.message : "";
+      // O gatilho do banco que barra e-mail temporário volta como erro genérico do Supabase.
+      setError(
+        /database error saving new user/i.test(msg)
+          ? "Não foi possível criar a conta com esse e-mail. Confira se é um e-mail pessoal e tente de novo."
+          : msg || "Não foi possível continuar. Tente de novo.",
+      );
     } finally {
       setLoading(false);
     }
