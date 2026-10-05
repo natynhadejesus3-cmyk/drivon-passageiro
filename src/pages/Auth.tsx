@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Car, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { errorMessage } from "@/lib/error-messages";
 
 export function Auth() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -44,13 +45,9 @@ export function Auth() {
         if (error) throw error;
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      // O gatilho do banco que barra e-mail temporário volta como erro genérico do Supabase.
-      setError(
-        /database error saving new user/i.test(msg)
-          ? "Não foi possível criar a conta com esse e-mail. Confira se é um e-mail pessoal e tente de novo."
-          : msg || "Não foi possível continuar. Tente de novo.",
-      );
+      // Traduz os erros do Supabase (inclusive o gatilho que barra e-mail temporário,
+      // que volta como "Database error saving new user").
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -97,7 +94,8 @@ export function Auth() {
             <Input
               type={showPassword ? "text" : "password"}
               required
-              minLength={6}
+              // 8+ só no cadastro (igual ao app do motorista). No login NÃO: quem já tem senha de 6 ou 7 não pode ficar travado.
+              minLength={mode === "signup" ? 8 : undefined}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"

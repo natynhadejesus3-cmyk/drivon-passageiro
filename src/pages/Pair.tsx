@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
 import { extractPairCode, pairWithDriver } from "@/lib/repository";
+import { errorMessage } from "@/lib/error-messages";
 
 const READER_ID = "qr-reader";
 
@@ -80,7 +81,7 @@ export function Pair() {
     } catch (err) {
       handledRef.current = false;
       setPairing(false);
-      setError(err instanceof Error ? err.message : "Não foi possível parear com esse código.");
+      setError(errorMessage(err, "Não foi possível parear com esse código."));
     }
   }
 
