@@ -140,7 +140,7 @@ export function Pair() {
         <textarea
           value={manualCode}
           onChange={(e) => setManualCode(e.target.value)}
-          placeholder="Cole aqui o código do motorista (ex: DRIVON-PAIR:AB3D9FGHJK)"
+          placeholder="Cole aqui o código ou o link do motorista"
           rows={2}
           className="w-full rounded-xl border border-[color:var(--color-hairline)] bg-card p-3.5 text-sm outline-none focus:border-primary"
         />

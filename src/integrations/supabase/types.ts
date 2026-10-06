@@ -134,6 +134,11 @@ export type Database = {
         Args: { p_code: string; p_passenger_display_name?: string | null };
         Returns: PairWithDriverResult[];
       };
+      // Só o primeiro nome do dono do código (pode ser chamada sem login; código inexistente = zero linhas).
+      driver_invite_info: {
+        Args: { p_code: string };
+        Returns: { first_name: string }[];
+      };
       // true = e-mail de caixa temporária (pode ser chamada sem login; só devolve sim/não).
       is_disposable_email: {
         Args: { p_email: string };

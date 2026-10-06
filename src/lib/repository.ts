@@ -7,6 +7,7 @@ import type {
   PairWithDriverResult,
   PassengerProfile,
 } from "@/integrations/supabase/types";
+import { parseInviteCode } from "@/lib/invite";
 
 /**
  * driver_passenger_links has no driver display-name column (see integration
@@ -34,14 +35,28 @@ export function getCachedDriverName(driverId: string): string {
   return getNameCache()[driverId] ?? "Motorista";
 }
 
-const CODE_PREFIX = "DRIVON-PAIR:";
-
-/** Extracts the 10-char pairing code from a scanned/pasted QR payload. */
+/**
+ * Extracts the 10-char pairing code from a scanned/pasted payload. Understands the
+ * old QR (`DRIVON-PAIR:CODE`), the new invite link (`https://.../?p=CODE`), the app's
+ * own address (`drivonpassageiro://p/CODE`) and the bare code -- see lib/invite.ts.
+ */
 export function extractPairCode(raw: string): string | null {
-  const trimmed = raw.trim();
-  const value = trimmed.includes(CODE_PREFIX) ? trimmed.split(CODE_PREFIX)[1] : trimmed;
-  const code = value?.trim().toUpperCase();
-  return code && /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{10}$/.test(code) ? code : null;
+  return parseInviteCode(raw);
+}
+
+/**
+ * Primeiro nome do motorista dono do código (pra página de convite dizer "Fulano te
+ * convidou"). Roda SEM login. Qualquer falha (sem rede, função ainda não criada no
+ * banco, código inexistente) devolve null e a página mostra um convite genérico.
+ */
+export async function getInviteDriverName(code: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc("driver_invite_info", { p_code: code });
+    if (error) return null;
+    return (data as { first_name: string }[] | null)?.[0]?.first_name ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function pairWithDriver(code: string, displayName?: string): Promise<PairWithDriverResult> {

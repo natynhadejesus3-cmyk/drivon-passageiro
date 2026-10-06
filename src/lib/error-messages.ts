@@ -23,7 +23,10 @@ const RULES: Array<[RegExp, string]> = [
 ];
 
 export function errorMessage(raw: unknown, fallback = "Não foi possível continuar. Tente de novo."): string {
-  const msg = raw instanceof Error ? raw.message : typeof raw === "string" ? raw : "";
+  // Erros do Supabase (PostgrestError, AuthError...) nem sempre são `Error` de verdade: às vezes
+  // vêm como objeto simples com `message`. Sem isso a mensagem era ignorada e caía no texto de reserva.
+  const objMessage = (raw as { message?: unknown } | null)?.message;
+  const msg = raw instanceof Error ? raw.message : typeof raw === "string" ? raw : typeof objMessage === "string" ? objMessage : "";
   if (!msg.trim()) return fallback;
   for (const [re, pt] of RULES) if (re.test(msg)) return pt;
   return msg;

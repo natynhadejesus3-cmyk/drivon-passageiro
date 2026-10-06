@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Car, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/error-messages";
+import { readPendingInvite } from "@/lib/invite";
+import { InviteBanner } from "./Invite";
 
-export function Auth() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+/** `inviteTick` muda quando chega um convite novo (link tocado com o app aberto) -- relê o pendente. */
+export function Auth({ inviteTick = 0 }: { inviteTick?: number }) {
+  // Convite esperando (QR lido pela câmera): mostra de quem é e, depois do login, o app pareia sozinho.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pendingInvite = useMemo(() => readPendingInvite(), [inviteTick]);
+  const [mode, setMode] = useState<"signin" | "signup">(pendingInvite ? "signup" : "signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,6 +70,8 @@ export function Auth() {
           {mode === "signup" ? "Crie sua conta pra parear com seus motoristas" : "Entre pra ver seus motoristas"}
         </p>
       </div>
+
+      {pendingInvite && <InviteBanner code={pendingInvite} />}
 
       <form onSubmit={submit} className="card-elevated space-y-3 p-5">
         {mode === "signup" && (
