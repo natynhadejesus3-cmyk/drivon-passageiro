@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
@@ -35,6 +35,19 @@ function AppRoutes() {
   const [inviteTick, setInviteTick] = useState(0);
   useEffect(() => listenForInviteLinks(() => setInviteTick((t) => t + 1)), []);
 
+  // O cadastro em etapas cria a conta (e portanto a sessão) ANTES de terminar: ainda faltam a
+  // foto, o "tudo pronto" e o vídeo de boas-vindas. Enquanto ele pedir, o app NÃO troca a tela
+  // de cadastro pelo app. Ao liberar depois do vídeo, o app entra com um fade suave.
+  const [holdAuth, setHoldAuth] = useState(false);
+  const releaseAuth = useCallback((opts?: { fade?: boolean }) => {
+    setHoldAuth(false);
+    if (opts?.fade) {
+      document.documentElement.setAttribute("data-enter-fade", "");
+      window.setTimeout(() => document.documentElement.removeAttribute("data-enter-fade"), 1000);
+    }
+  }, []);
+  const holdAuthNow = useCallback(() => setHoldAuth(true), []);
+
   usePresence();
   useEffect(() => startVersionWatcher(), []);
 
@@ -55,10 +68,10 @@ function AppRoutes() {
 
   if (loading) return null;
 
-  if (!session) {
+  if (!session || holdAuth) {
     return (
       <AppShell hideNav>
-        <Auth inviteTick={inviteTick} />
+        <Auth inviteTick={inviteTick} onHold={holdAuthNow} onRelease={releaseAuth} />
       </AppShell>
     );
   }

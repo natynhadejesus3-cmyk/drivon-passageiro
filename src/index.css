@@ -248,6 +248,32 @@
   100% { transform: scale(1.15); opacity: 0; }
 }
 
+/* Cadastro em etapas (SignupWizard): a etapa nova entra deslizando; o check do "tudo pronto" se desenha. */
+@keyframes wizard-in-fwd {
+  0% { opacity: 0; transform: translateX(32px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes wizard-in-back {
+  0% { opacity: 0; transform: translateX(-32px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes check-draw {
+  0% { stroke-dashoffset: 60; }
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes ring-expand {
+  0% { opacity: 0.7; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
+/* Entrada no app logo depois do vídeo de boas-vindas (a flag é posta/tirada pelo App.tsx). */
+@keyframes enter-fade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+html[data-enter-fade] body {
+  animation: enter-fade 0.9s ease-out backwards;
+}
+
 @utility screen-anim {
   animation: screen-in 220ms cubic-bezier(0.22, 0.9, 0.35, 1);
   will-change: opacity, transform;

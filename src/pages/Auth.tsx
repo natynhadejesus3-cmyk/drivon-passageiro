@@ -1,58 +1,51 @@
 import { useMemo, useState } from "react";
 import { Car, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { SignupWizard } from "@/components/auth/SignupWizard";
 import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/error-messages";
 import { readPendingInvite } from "@/lib/invite";
 import { InviteBanner } from "./Invite";
 
-/** `inviteTick` muda quando chega um convite novo (link tocado com o app aberto) -- relê o pendente. */
-export function Auth({ inviteTick = 0 }: { inviteTick?: number }) {
+/**
+ * Entrar (formulário simples) ou criar conta (assistente em etapas, ver SignupWizard).
+ *
+ * `inviteTick` muda quando chega um convite novo (link tocado com o app aberto) -- relê o pendente.
+ * `onHold`/`onRelease`: o assistente pede ao App pra NÃO trocar esta tela pelo app assim que a
+ * conta nascer (ainda faltam a foto, o "tudo pronto" e o vídeo de boas-vindas).
+ */
+export function Auth({
+  inviteTick = 0,
+  onHold,
+  onRelease,
+}: {
+  inviteTick?: number;
+  onHold: () => void;
+  onRelease: (opts?: { fade?: boolean }) => void;
+}) {
   // Convite esperando (QR lido pela câmera): mostra de quem é e, depois do login, o app pareia sozinho.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const pendingInvite = useMemo(() => readPendingInvite(), [inviteTick]);
+  // Quem chegou por um convite provavelmente ainda não tem conta: já abre no cadastro.
   const [mode, setMode] = useState<"signin" | "signup">(pendingInvite ? "signup" : "signin");
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  if (mode === "signup") {
+    return <SignupWizard onBackToLogin={() => setMode("signin")} onHold={onHold} onRelease={onRelease} />;
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      if (mode === "signup") {
-        // E-mail de caixa temporária (ex.: hudzer.com) não é aceito: pergunta ao
-        // banco ANTES de enviar o cadastro, pra dar uma mensagem clara. Se a
-        // pergunta falhar (sem rede, função ainda não criada) segue normal -- o
-        // banco também barra na hora de criar a conta.
-        try {
-          const { data: temporary } = await supabase.rpc("is_disposable_email", { p_email: email.trim() });
-          if (temporary === true) {
-            setError("Esse tipo de e-mail temporário não é aceito. Use o seu e-mail pessoal (Gmail, Outlook, etc.).");
-            return;
-          }
-        } catch {
-          /* o banco confere de novo ao criar a conta */
-        }
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { user_type: "passenger", display_name: name || undefined },
-          },
-        });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (err) {
-      // Traduz os erros do Supabase (inclusive o gatilho que barra e-mail temporário,
-      // que volta como "Database error saving new user").
       setError(errorMessage(err));
     } finally {
       setLoading(false);
@@ -66,25 +59,12 @@ export function Auth({ inviteTick = 0 }: { inviteTick?: number }) {
           <Car size={28} />
         </div>
         <h1 className="text-title">Drivon Passageiro</h1>
-        <p className="text-center text-subtitle">
-          {mode === "signup" ? "Crie sua conta pra parear com seus motoristas" : "Entre pra ver seus motoristas"}
-        </p>
+        <p className="text-center text-subtitle">Entre pra ver seus motoristas</p>
       </div>
 
       {pendingInvite && <InviteBanner code={pendingInvite} />}
 
       <form onSubmit={submit} className="card-elevated space-y-3 p-5">
-        {mode === "signup" && (
-          <div>
-            <label className="text-label">Seu nome</label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Como o motorista vai te ver"
-              className="mt-1"
-            />
-          </div>
-        )}
         <div>
           <label className="text-label">E-mail</label>
           <Input
@@ -102,8 +82,6 @@ export function Auth({ inviteTick = 0 }: { inviteTick?: number }) {
             <Input
               type={showPassword ? "text" : "password"}
               required
-              // 8+ só no cadastro (igual ao app do motorista). No login NÃO: quem já tem senha de 6 ou 7 não pode ficar travado.
-              minLength={mode === "signup" ? 8 : undefined}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -124,15 +102,12 @@ export function Auth({ inviteTick = 0 }: { inviteTick?: number }) {
         {error && <p className="text-label text-destructive">{error}</p>}
 
         <button type="submit" disabled={loading} className="btn-primary flex w-full items-center justify-center disabled:opacity-50">
-          {loading ? "Aguarde..." : mode === "signup" ? "Criar conta" : "Entrar"}
+          {loading ? "Aguarde..." : "Entrar"}
         </button>
       </form>
 
-      <button
-        onClick={() => setMode((m) => (m === "signup" ? "signin" : "signup"))}
-        className="mt-4 text-center text-label font-semibold text-primary"
-      >
-        {mode === "signup" ? "Já tenho conta — entrar" : "Ainda não tenho conta — criar"}
+      <button onClick={() => setMode("signup")} className="mt-4 text-center text-label font-semibold text-primary">
+        Ainda não tenho conta — criar
       </button>
     </div>
   );
