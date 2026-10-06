@@ -16,8 +16,12 @@ export const SITE_URL = "https://natynhadejesus3-cmyk.github.io/drivon-passageir
 /**
  * Link pra BAIXAR o app (Play Store ou o APK hospedado). Vazio = a página de convite
  * esconde o botão de baixar e deixa só "continuar no navegador".
+ *
+ * Hoje aponta pro APK de TESTE publicado numa Release do GitHub (v0.1-teste). Ao publicar
+ * na Play Store, troque por o link da loja.
  */
-export const APP_DOWNLOAD_URL = "";
+export const APP_DOWNLOAD_URL =
+  "https://github.com/natynhadejesus3-cmyk/drivon-passageiro/releases/download/v0.1-teste/drivon-passageiro.apk";
 
 /** Pacote do app Android (capacitor.config.ts `appId`) e o endereço próprio que o abre. */
 export const APP_PACKAGE = "com.drivon.passageiro";

@@ -3,6 +3,7 @@
  * Rodar com: bun run scripts/invite.test.ts
  */
 import {
+  APP_DOWNLOAD_URL,
   APP_PACKAGE,
   APP_SCHEME,
   SITE_URL,
@@ -50,7 +51,13 @@ check("link do QR termina com o código", buildInviteUrl(CODE), `${SITE_URL}?p=$
 const open = buildOpenAppUrl(CODE);
 check("'Abrir no app' usa intent com o pacote certo", open.startsWith(`intent://p/${CODE}#Intent;scheme=${APP_SCHEME};package=${APP_PACKAGE};`), true);
 check("'Abrir no app' tem fallback (senão o Chrome tenta abrir a Play Store)", open.includes("S.browser_fallback_url="), true);
-check("o fallback volta pra página de convite avisando que não achou o app", decodeURIComponent(open).includes(`?p=${CODE}&sem_app=1`), true);
+// Sem o app instalado, o Chrome segue pro fallback: o link de baixar (quando existe) ou a própria página de convite.
+const fallbackUrl = decodeURIComponent(open.split("S.browser_fallback_url=")[1].replace(";end", ""));
+check(
+  APP_DOWNLOAD_URL ? "o fallback leva direto pro download do app" : "o fallback volta pra página de convite avisando que não achou o app",
+  fallbackUrl,
+  APP_DOWNLOAD_URL || `${SITE_URL}?p=${CODE}&sem_app=1`,
+);
 
 // ---- convite pendente (com armazenamento falso na memória) ----
 const mem = new Map<string, string>();
