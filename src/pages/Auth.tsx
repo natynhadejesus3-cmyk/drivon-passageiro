@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Car, Eye, EyeOff } from "lucide-react";
+import { Car, Eye, EyeOff, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SignupWizard } from "@/components/auth/SignupWizard";
 import { Input } from "@/components/ui/input";
@@ -106,8 +106,20 @@ export function Auth({
         </button>
       </form>
 
-      <button onClick={() => setMode("signup")} className="mt-4 text-center text-label font-semibold text-primary">
-        Ainda não tenho conta — criar
+      {/* Quem ainda não tem conta não pode passar batido: botão de verdade, com contorno laranja,
+          em vez de um link pequeno embaixo do formulário. */}
+      <div className="mt-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-[color:var(--color-hairline)]" />
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Novo por aqui?</span>
+        <div className="h-px flex-1 bg-[color:var(--color-hairline)]" />
+      </div>
+      <button
+        type="button"
+        onClick={() => setMode("signup")}
+        className="btn-outline mt-3 flex w-full items-center justify-center gap-2"
+      >
+        <UserPlus size={18} />
+        Criar minha conta
       </button>
     </div>
   );
