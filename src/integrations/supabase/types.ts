@@ -139,6 +139,16 @@ export type Database = {
         Args: { p_code: string };
         Returns: { first_name: string }[];
       };
+      // Página de convite avisa o banco que "alguém nesta rede abriu o convite X" (pode ser chamada sem login).
+      record_invite_click: {
+        Args: { p_code: string; p_screen?: string | null };
+        Returns: boolean;
+      };
+      // App recém-instalado pergunta qual convite foi aberto nesta rede/aparelho (precisa de login; uso único).
+      claim_invite_handoff: {
+        Args: { p_screen?: string | null };
+        Returns: { code: string; first_name: string }[];
+      };
       // true = e-mail de caixa temporária (pode ser chamada sem login; só devolve sim/não).
       is_disposable_email: {
         Args: { p_email: string };

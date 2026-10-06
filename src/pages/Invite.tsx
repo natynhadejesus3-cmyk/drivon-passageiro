@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Car, Download, Smartphone, UserCheck } from "lucide-react";
+import { recordInviteClick } from "@/lib/handoff";
 import { useInviteDriverName } from "@/lib/use-invite";
 import { APP_DOWNLOAD_URL, buildOpenAppUrl } from "@/lib/invite";
 
@@ -16,6 +18,12 @@ const isAndroid = () => typeof navigator !== "undefined" && /Android/i.test(navi
 export function Invite({ code, noApp, onContinue }: { code: string; noApp: boolean; onContinue: () => void }) {
   const name = useInviteDriverName(code);
   const android = isAndroid();
+
+  // Deixa um recado no banco ("alguém nesta rede abriu o convite X") pra que o app, depois de
+  // instalado, saiba de qual motorista a pessoa veio (ver lib/handoff.ts). Só faz sentido no Android.
+  useEffect(() => {
+    if (android) void recordInviteClick(code);
+  }, [code, android]);
 
   return (
     <div className="flex h-full flex-col justify-center px-6 py-10">
@@ -77,7 +85,7 @@ export function Invite({ code, noApp, onContinue }: { code: string; noApp: boole
       </div>
 
       <p className="mt-4 text-center text-label">
-        O motorista fica salvo na sua conta. Se baixar o app depois, é só entrar com o mesmo e-mail.
+        Depois de instalar, abra o app e entre na sua conta: o motorista já aparece. Se não aparecer, entre com o mesmo e-mail que usou aqui.
       </p>
     </div>
   );

@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/error-messages";
+import { claimInviteHandoff, handoffAlreadyChecked, markHandoffChecked } from "@/lib/handoff";
 import { clearPendingInvite, readPendingInvite } from "@/lib/invite";
 import { pairWithDriver } from "@/lib/repository";
 
-type Status = { phase: "pairing" } | { phase: "error"; code: string; message: string; canRetry: boolean };
+type Status =
+  | { phase: "pairing" }
+  | { phase: "confirm"; code: string; name: string }
+  | { phase: "error"; code: string; message: string; canRetry: boolean };
 
 /**
  * Quem entrou com um convite pendente (QR lido pela câmera) é pareado sozinho assim que
  * há conta logada, e cai direto na conversa com o motorista. Fica de fora do fluxo normal:
  * sem convite pendente não renderiza nada.
+ *
+ * App recém-instalado (sem convite em mãos): pergunta ao banco se um convite foi aberto
+ * neste celular há pouco (lib/handoff.ts) e, se sim, confirma com a pessoa antes de parear.
  *
  * `tick` muda quando chega um convite novo com o app já aberto (link tocado por fora).
  */
@@ -60,6 +68,26 @@ export function InviteAutoPair({ tick }: { tick: number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, tick]);
 
+  // App instalado agora há pouco: o convite que a pessoa viu no navegador não veio junto,
+  // então pergunta ao banco. O claim APAGA o registro no servidor, por isso só uma pergunta
+  // por conta/instalação, e a trava `claiming` impede a segunda rodada do efeito (React em
+  // desenvolvimento roda duas vezes) de gastar o convite sem ninguém ver.
+  const claiming = useRef<string | null>(null);
+  useEffect(() => {
+    const id = user?.id;
+    if (!id || !Capacitor.isNativePlatform()) return;
+    if (readPendingInvite() || handoffAlreadyChecked(id) || claiming.current === id) return;
+    claiming.current = id;
+    void claimInviteHandoff().then(({ ok, handoff }) => {
+      if (!ok) {
+        claiming.current = null; // a pergunta não chegou: tenta de novo no próximo login/abertura
+        return;
+      }
+      markHandoffChecked(id);
+      if (handoff) setStatus({ phase: "confirm", code: handoff.code, name: handoff.firstName });
+    });
+  }, [user?.id, tick]);
+
   if (!status) return null;
 
   return (
@@ -67,6 +95,19 @@ export function InviteAutoPair({ tick }: { tick: number }) {
       <div className="card-elevated w-full max-w-sm space-y-4 p-6 text-center">
         {status.phase === "pairing" ? (
           <p className="text-body font-semibold">Conectando com o motorista…</p>
+        ) : status.phase === "confirm" ? (
+          <>
+            <p className="text-body font-semibold">Você veio pelo convite de {status.name}?</p>
+            <p className="text-label">Um convite dele foi aberto neste celular agora há pouco. Se for você, é só confirmar.</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setStatus(null)} className="btn-outline-neutral flex-1">
+                Agora não
+              </button>
+              <button type="button" onClick={() => void run(status.code)} className="btn-primary flex-1">
+                Sim, parear
+              </button>
+            </div>
+          </>
         ) : (
           <>
             <p className="text-label text-destructive">{status.message}</p>
