@@ -7,6 +7,7 @@ import {
   SIGNUP_STEPS,
   firstNameOf,
   isValidEmail,
+  nextStepIndex,
   passwordScore,
   stepForSignupError,
   strengthLabel,
@@ -38,6 +39,17 @@ check("nome: vazio e 1 letra recusados, 2 letras aceitas", [validateStep("name",
 check("e-mail: erro e ok", [validateStep("email", { name: "", email: "x", password: "" }), validateStep("email", { name: "", email: "x@y.com", password: "" })], ["Esse e-mail não parece certo.", null]);
 check("senha: 7 recusada, 8 aceita", [validateStep("password", { name: "", email: "", password: "1234567" }), validateStep("password", { name: "", email: "", password: "12345678" })], ["A senha precisa ter pelo menos 8 caracteres.", null]);
 check("foto nunca bloqueia", validateStep("photo", { name: "", email: "", password: "" }), null);
+
+// "Continuar" depois de voltar pra corrigir: vai direto até onde a pessoa tinha chegado
+const ok = { name: "Maria", email: "maria@exemplo.com", password: "12345678" };
+check("avanço normal: vai pra próxima etapa", [nextStepIndex(0, 0, ok), nextStepIndex(1, 1, ok), nextStepIndex(2, 2, ok)], [1, 2, 3]);
+check("corrigiu o e-mail (etapa 1) tendo chegado na foto (3): pula direto pra foto", nextStepIndex(1, 3, ok), 3);
+check("corrigiu o nome (etapa 0) tendo chegado na foto: pula direto pra foto", nextStepIndex(0, 3, ok), 3);
+check("corrigiu a senha (etapa 2) tendo chegado na foto: vai pra foto", nextStepIndex(2, 3, ok), 3);
+check("tinha chegado só na senha (2) e voltou ao nome: para na senha", nextStepIndex(0, 2, ok), 2);
+check("etapa do meio inválida: para nela em vez de pular", nextStepIndex(0, 3, { ...ok, email: "ruim" }), 1);
+check("senha do meio inválida: para na senha", nextStepIndex(1, 3, { ...ok, password: "123" }), 2);
+check("nunca passa da última etapa", nextStepIndex(1, 99, ok), 3);
 
 // erro na criação da conta -> volta pra etapa certa (usando as mensagens REAIS já traduzidas)
 const msg = (raw: string) => errorMessage(new Error(raw));

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Car, Eye, EyeOff, UserPlus } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { SignupWizard } from "@/components/auth/SignupWizard";
 import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/error-messages";
 import { readPendingInvite } from "@/lib/invite";
+import { loginWithIdentifier } from "@/lib/passenger-login";
 import { InviteBanner } from "./Invite";
 
 /**
@@ -28,14 +28,25 @@ export function Auth({
   const pendingInvite = useMemo(() => readPendingInvite(), [inviteTick]);
   // Quem chegou por um convite provavelmente ainda não tem conta: já abre no cadastro.
   const [mode, setMode] = useState<"signin" | "signup">(pendingInvite ? "signup" : "signin");
-  const [email, setEmail] = useState("");
+  // @usuário (o mesmo do app do motorista) ou e-mail.
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   if (mode === "signup") {
-    return <SignupWizard onBackToLogin={() => setMode("signin")} onHold={onHold} onRelease={onRelease} />;
+    return (
+      <SignupWizard
+        // Se o e-mail já tinha conta, o assistente devolve pro login com ele preenchido.
+        onBackToLogin={(existingEmail) => {
+          if (existingEmail) setIdentifier(existingEmail);
+          setMode("signin");
+        }}
+        onHold={onHold}
+        onRelease={onRelease}
+      />
+    );
   }
 
   async function submit(e: React.FormEvent) {
@@ -43,8 +54,8 @@ export function Auth({
     setError(null);
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      // Mesma conta dos dois apps: entra com o @usuário do motorista ou com o e-mail.
+      await loginWithIdentifier(identifier, password);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -66,13 +77,18 @@ export function Auth({
 
       <form onSubmit={submit} className="card-elevated space-y-3 p-5">
         <div>
-          <label className="text-label">E-mail</label>
+          <label className="text-label">Usuário ou e-mail</label>
           <Input
-            type="email"
+            type="text"
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="voce@email.com"
+            // Aceita o @usuário do app do motorista (não é e-mail, por isso NÃO é type="email").
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="seu_usuario ou voce@email.com"
             className="mt-1"
           />
         </div>

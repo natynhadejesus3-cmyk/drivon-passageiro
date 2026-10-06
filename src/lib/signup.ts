@@ -51,6 +51,25 @@ export function validateStep(step: SignupStepKey, v: { name: string; email: stri
 }
 
 /**
+ * Para onde vai o "Continuar" da etapa `current`. Normalmente é a próxima. Mas se a pessoa
+ * VOLTOU pra corrigir algo (ou foi devolvida por um erro na criação da conta), o "Continuar"
+ * leva direto de volta até onde ela tinha chegado (`furthest`), em vez de refazer as etapas
+ * do meio. Só pula etapas cujos dados continuam válidos: se alguma estiver inválida, para nela.
+ */
+export function nextStepIndex(
+  current: number,
+  furthest: number,
+  v: { name: string; email: string; password: string },
+): number {
+  const first = current + 1;
+  const target = Math.min(Math.max(first, furthest), SIGNUP_STEPS.length - 1);
+  for (let i = first; i < target; i++) {
+    if (validateStep(SIGNUP_STEPS[i]!, v)) return i;
+  }
+  return target;
+}
+
+/**
  * Se a criação da conta falhar, volta pra etapa do campo com problema em vez de deixar a
  * pessoa perdida na última tela. Recebe a mensagem JÁ em português (errorMessage()).
  */

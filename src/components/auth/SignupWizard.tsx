@@ -8,6 +8,7 @@ import { upsertPassengerProfile } from "@/lib/repository";
 import {
   SIGNUP_STEPS,
   firstNameOf,
+  nextStepIndex,
   passwordScore,
   stepForSignupError,
   strengthLabel,
@@ -72,7 +73,8 @@ export function SignupWizard({
   onHold,
   onRelease,
 }: {
-  onBackToLogin: () => void;
+  /** Volta pro login; `email` (se houver) já vai preenchido (quando a conta já existe). */
+  onBackToLogin: (email?: string) => void;
   onHold: () => void;
   onRelease: (opts?: { fade?: boolean }) => void;
 }) {
@@ -85,6 +87,9 @@ export function SignupWizard({
   const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Etapa mais adiantada em que a pessoa já esteve. Se ela voltar (ou um erro devolvê-la) pra
+  // corrigir algo, o "Continuar" leva direto até aqui em vez de refazer as etapas do meio.
+  const [furthest, setFurthest] = useState(0);
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const compact = useKeyboardCompact();
@@ -106,6 +111,8 @@ export function SignupWizard({
     setDir(direction);
     setError(null);
     setStep(to);
+    const at = (SIGNUP_STEPS as readonly string[]).indexOf(to);
+    if (at >= 0) setFurthest((f) => Math.max(f, at));
   }
 
   async function next(e?: FormEvent) {
@@ -135,7 +142,8 @@ export function SignupWizard({
         setBusy(false);
       }
     }
-    go(SIGNUP_STEPS[stepIndex + 1]!, "fwd");
+    // Normalmente a próxima etapa; se a pessoa voltou pra corrigir algo, direto até onde tinha chegado.
+    go(SIGNUP_STEPS[nextStepIndex(stepIndex, furthest, { name, email, password })]!, "fwd");
   }
 
   function back() {
@@ -374,12 +382,29 @@ export function SignupWizard({
               )}
 
               {error && <p className="mt-3 text-center text-[13px] font-semibold text-destructive">{error}</p>}
+              {/* O e-mail já tem conta (inclusive do app do motorista, que vale aqui também): leva pro
+                  login já com o e-mail preenchido, em vez de a pessoa ficar procurando. */}
+              {step === "email" && error && /já está cadastrado/i.test(error) && (
+                <button
+                  type="button"
+                  onClick={() => onBackToLogin(email.trim())}
+                  className="btn-outline mt-3 flex w-full items-center justify-center"
+                >
+                  Entrar com essa conta
+                </button>
+              )}
+              {/* Voltou pra corrigir algo: avisa que não precisa refazer o resto. */}
+              {furthest > stepIndex && !error && (
+                <p className="mt-3 text-center text-[12px] text-muted-foreground">
+                  Depois de corrigir, toque em Continuar: você volta direto para onde estava.
+                </p>
+              )}
             </div>
           )}
         </div>
 
         {step === "verify" && (
-          <button type="button" onClick={onBackToLogin} className="btn-primary flex w-full items-center justify-center">
+          <button type="button" onClick={() => onBackToLogin()} className="btn-primary flex w-full items-center justify-center">
             Ir para o login
           </button>
         )}
@@ -398,7 +423,7 @@ export function SignupWizard({
               )}
             </button>
             {step === "name" && !compact && (
-              <button type="button" onClick={onBackToLogin} className="w-full pt-1 text-center text-sm text-muted-foreground">
+              <button type="button" onClick={() => onBackToLogin()} className="w-full pt-1 text-center text-sm text-muted-foreground">
                 Já tem conta? <span className="font-semibold text-primary">Entrar</span>
               </button>
             )}
