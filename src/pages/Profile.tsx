@@ -1,4 +1,4 @@
-import { Bell, Camera, ChevronRight, Image as ImageIcon, LogOut, Mail, PartyPopper, User, X } from "lucide-react";
+import { Bell, Camera, ChevronRight, ExternalLink, FileText, Image as ImageIcon, LogOut, Mail, PartyPopper, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
@@ -7,6 +7,7 @@ import { runningBuildId } from "@/lib/build-version";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
+import { LEGAL_URLS } from "@/lib/legal";
 import { getMyPassengerProfile, upsertPassengerProfile } from "@/lib/repository";
 import { getNativePushStatus } from "@/lib/notifications/native-push";
 
@@ -199,6 +200,16 @@ export function Profile() {
           </div>
         </div>
 
+        <div>
+          <p className="section-label mb-2 px-1">Legal</p>
+          <div className="list-card">
+            <LegalRow label="Termos de Uso" href={LEGAL_URLS.terms} />
+            <div className="border-t border-[color:var(--color-hairline)]">
+              <LegalRow label="Política de Privacidade" href={LEGAL_URLS.privacy} />
+            </div>
+          </div>
+        </div>
+
         <p className="pt-2 text-center text-label opacity-60">
           Drivon Passageiro · v{APP_VERSION} · build {runningBuildId() ?? "dev"}
         </p>
@@ -257,6 +268,24 @@ export function Profile() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Linha que abre um texto legal fora do app (no navegador do celular). */
+function LegalRow({ label, href }: { label: string; href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex w-full items-center gap-3 p-4 text-left active:bg-card"
+    >
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+        <FileText size={16} />
+      </span>
+      <span className="flex-1 text-[15px] font-medium">{label}</span>
+      <ExternalLink size={15} className="text-muted-foreground" />
+    </a>
   );
 }
 

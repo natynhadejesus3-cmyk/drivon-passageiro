@@ -15,6 +15,7 @@ import {
   validateStep,
   type SignupStepKey,
 } from "@/lib/signup";
+import { LegalConsent } from "@/components/LegalConsent";
 import { InviteBanner } from "@/pages/Invite";
 import { IllusEmail, IllusLock, IllusName, IllusSuccess, PhotoPreview } from "./SignupIllustrations";
 import { WelcomeVideo } from "./WelcomeVideo";
@@ -422,6 +423,7 @@ export function SignupWizard({
                 "Continuar"
               )}
             </button>
+            {step === last && !compact && <LegalConsent lead="Ao criar a conta" className="text-center" />}
             {step === "name" && !compact && (
               <button type="button" onClick={() => onBackToLogin()} className="w-full pt-1 text-center text-sm text-muted-foreground">
                 Já tem conta? <span className="font-semibold text-primary">Entrar</span>

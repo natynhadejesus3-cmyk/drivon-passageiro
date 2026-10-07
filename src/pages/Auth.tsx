@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Car, Eye, EyeOff, UserPlus } from "lucide-react";
 import { SignupWizard } from "@/components/auth/SignupWizard";
+import { LegalConsent } from "@/components/LegalConsent";
 import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/error-messages";
 import { readPendingInvite } from "@/lib/invite";
@@ -137,6 +138,8 @@ export function Auth({
         <UserPlus size={18} />
         Criar minha conta
       </button>
+
+      <LegalConsent lead="Ao continuar" className="mt-4 px-2 text-center" />
     </div>
   );
 }
