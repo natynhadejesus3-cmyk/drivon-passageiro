@@ -2,22 +2,29 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Mail } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/error-messages";
-import { RECOVERY_REDIRECT_URL, RESEND_SECONDS } from "@/lib/recovery";
+import { RECOVERY_REDIRECT_URL, RESEND_SECONDS, isValidRecoveryCode, normalizeRecoveryCode } from "@/lib/recovery";
+import { verifyRecoveryCode } from "@/lib/recovery-actions";
 import { isValidEmail } from "@/lib/signup";
 
 /**
- * "Esqueci minha senha": pede o e-mail e manda o link de recuperação. O texto de confirmação é
- * sempre o mesmo, exista a conta ou não (não revela quem tem cadastro). Quem toca no link cai no
- * app com a tela "Nova senha" (ver auth-context.tsx e pages/ResetPassword.tsx).
+ * "Esqueci minha senha": pede o e-mail e manda o e-mail de recuperação (botão que abre o app +
+ * código de números). O texto de confirmação é sempre o mesmo, exista a conta ou não (não revela
+ * quem tem cadastro). Quem toca no botão cai no app com a tela "Nova senha" (ver
+ * pages/RecoveryLink.tsx); quem preferir digita o código aqui mesmo.
  */
 export function ForgotPassword({ initialEmail = "", onBack }: { initialEmail?: string; onBack: () => void }) {
+  const { startRecovery } = useAuth();
   const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
   // Segundos até poder pedir outro e-mail (evita apertar várias vezes e bater no limite do Supabase).
   const [wait, setWait] = useState(0);
+  const [code, setCode] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -46,6 +53,25 @@ export function ForgotPassword({ initialEmail = "", onBack }: { initialEmail?: s
     }
   }
 
+  async function confirmCode(e: FormEvent) {
+    e.preventDefault();
+    if (!sentTo) return;
+    if (!isValidRecoveryCode(code)) {
+      setCodeError("O código tem 6 números. Confira no e-mail.");
+      return;
+    }
+    setCodeError(null);
+    setCodeBusy(true);
+    try {
+      const session = await verifyRecoveryCode(sentTo, code);
+      startRecovery(session); // o App troca esta tela pela "Nova senha"
+    } catch (err) {
+      setCodeError(errorMessage(err));
+    } finally {
+      setCodeBusy(false);
+    }
+  }
+
   if (sentTo) {
     return (
       <div className="flex h-full flex-col justify-center px-6 py-10">
@@ -55,16 +81,39 @@ export function ForgotPassword({ initialEmail = "", onBack }: { initialEmail?: s
           </div>
           <h1 className="text-title">Confira seu e-mail</h1>
           <p className="text-center text-subtitle">
-            Se <b className="break-all">{sentTo}</b> tiver uma conta, o link para criar uma senha nova chega em instantes.
+            Se <b className="break-all">{sentTo}</b> tiver uma conta, o e-mail chega em instantes.
           </p>
         </div>
 
         <div className="card-elevated space-y-2 p-5 text-label">
-          <p>1. Abra o e-mail e toque no link.</p>
-          <p>2. Escolha a senha nova.</p>
-          <p>3. Volte aqui e entre com ela.</p>
+          <p>1. Abra o e-mail e toque em “Criar nova senha”.</p>
+          <p>2. Toque em “Abrir no aplicativo” e escolha a senha nova.</p>
           <p className="pt-1 opacity-70">Não chegou? Olhe a caixa de spam. O link vale por pouco tempo.</p>
         </div>
+
+        <form onSubmit={confirmCode} className="card-elevated mt-3 space-y-2 p-5">
+          <label className="text-label">O botão não abriu o app? Digite aqui o código do e-mail:</label>
+          <Input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={12}
+            value={code}
+            onChange={(e) => {
+              setCode(normalizeRecoveryCode(e.target.value));
+              setCodeError(null);
+            }}
+            placeholder="123456"
+            className="text-center text-lg tracking-[0.3em]"
+          />
+          {codeError && <p className="text-label text-destructive">{codeError}</p>}
+          <button
+            type="submit"
+            disabled={codeBusy || code.length < 6}
+            className="btn-outline flex w-full items-center justify-center disabled:opacity-50"
+          >
+            {codeBusy ? "Conferindo..." : "Usar este código"}
+          </button>
+        </form>
 
         {error && <p className="mt-3 text-center text-label text-destructive">{error}</p>}
 
@@ -72,7 +121,7 @@ export function ForgotPassword({ initialEmail = "", onBack }: { initialEmail?: s
           type="button"
           onClick={() => void send()}
           disabled={busy || wait > 0}
-          className="btn-outline mt-4 flex w-full items-center justify-center disabled:opacity-50"
+          className="btn-outline-neutral mt-3 flex w-full items-center justify-center disabled:opacity-50"
         >
           {busy ? "Enviando..." : wait > 0 ? `Enviar de novo em ${wait}s` : "Enviar de novo"}
         </button>

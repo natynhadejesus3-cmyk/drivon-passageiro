@@ -10,6 +10,8 @@ type Ctx = {
   /** Abriu pelo link de "esqueci minha senha": o app mostra "Nova senha" até a pessoa trocar. */
   recovery: boolean;
   finishRecovery: () => void;
+  /** O link/código do e-mail deu certo: entra na sessão de recuperação e já mostra "Nova senha". */
+  startRecovery: (session: Session) => void;
 };
 
 const AuthCtx = createContext<Ctx>({
@@ -18,6 +20,7 @@ const AuthCtx = createContext<Ctx>({
   loading: true,
   recovery: false,
   finishRecovery: () => {},
+  startRecovery: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -58,9 +61,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRecovering(false);
   }, []);
 
+  // Põe a sessão e a marca "recuperando" JUNTAS: se a marca entrasse antes da sessão chegar pelo
+  // onAuthStateChange, o efeito acima acharia que é uma marca velha e a apagaria.
+  const startRecovery = useCallback((s: Session) => {
+    markRecovery();
+    setSession(s);
+    setLoading(false);
+    setRecovering(true);
+  }, []);
+
   return (
     <AuthCtx.Provider
-      value={{ session, user: session?.user ?? null, loading, recovery: recovering && !!session, finishRecovery }}
+      value={{
+        session,
+        user: session?.user ?? null,
+        loading,
+        recovery: recovering && !!session,
+        finishRecovery,
+        startRecovery,
+      }}
     >
       {children}
     </AuthCtx.Provider>

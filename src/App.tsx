@@ -7,6 +7,8 @@ import { RideAcceptedCelebration } from "./components/RideAcceptedCelebration";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getBootInvite } from "@/lib/invite";
 import { listenForInviteLinks } from "@/lib/native-invite";
+import { listenForRecoveryLinks } from "@/lib/native-recovery";
+import { getBootAuthLink } from "@/lib/recovery";
 import { usePresence } from "@/lib/use-presence";
 import { startVersionWatcher } from "@/lib/build-version";
 import { initNativePush } from "@/lib/notifications/native-push";
@@ -17,6 +19,7 @@ import { Home } from "./pages/Home";
 import { Invite } from "./pages/Invite";
 import { Pair } from "./pages/Pair";
 import { Profile } from "./pages/Profile";
+import { RecoveryLink } from "./pages/RecoveryLink";
 import { ResetPassword } from "./pages/ResetPassword";
 
 function AppRoutes() {
@@ -35,6 +38,14 @@ function AppRoutes() {
   // Muda quando chega um convite novo com o app já aberto.
   const [inviteTick, setInviteTick] = useState(0);
   useEffect(() => listenForInviteLinks(() => setInviteTick((t) => t + 1)), []);
+
+  // Botão "Criar nova senha" do e-mail de "esqueci minha senha": no navegador chega pelo endereço
+  // (?token_hash=...), dentro do app instalado chega pelo link que o Android entrega ao app.
+  const [recoveryLink, setRecoveryLink] = useState<{ token: string; noApp: boolean } | null>(() => {
+    const boot = getBootAuthLink();
+    return boot.tokenHash ? { token: boot.tokenHash, noApp: boot.noApp } : null;
+  });
+  useEffect(() => listenForRecoveryLinks((token) => setRecoveryLink({ token, noApp: false })), []);
 
   // O cadastro em etapas cria a conta (e portanto a sessão) ANTES de terminar: ainda faltam a
   // foto, o "tudo pronto" e o vídeo de boas-vindas. Enquanto ele pedir, o app NÃO troca a tela
@@ -68,6 +79,20 @@ function AppRoutes() {
   }
 
   if (loading) return null;
+
+  if (recoveryLink) {
+    return (
+      <AppShell hideNav>
+        <RecoveryLink
+          key={recoveryLink.token}
+          tokenHash={recoveryLink.token}
+          noApp={recoveryLink.noApp}
+          onBack={() => setRecoveryLink(null)}
+          onDone={() => setRecoveryLink(null)}
+        />
+      </AppShell>
+    );
+  }
 
   // Chegou pelo link de "esqueci minha senha": a sessão já existe, mas antes de usar o app
   // a pessoa precisa escolher a senha nova.

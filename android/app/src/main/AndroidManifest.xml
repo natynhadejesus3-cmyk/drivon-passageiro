@@ -26,7 +26,10 @@
             <!-- Convite do motorista (QR lido pela câmera). O botão "Abrir no app" da
                  página de convite usa drivonpassageiro://p/CODIGO; o link https do próprio
                  QR também pode abrir o app. O código chega no app pelo @capacitor/app
-                 (ver src/lib/native-invite.ts). -->
+                 (ver src/lib/native-invite.ts). Este mesmo filtro (qualquer caminho depois de
+                 drivonpassageiro://p/) também recebe o botão "Abrir no aplicativo" do e-mail de
+                 "esqueci minha senha": drivonpassageiro://p/recuperar?token_hash=... (ver
+                 src/lib/native-recovery.ts). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

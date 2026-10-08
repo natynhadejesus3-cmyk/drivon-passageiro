@@ -15,6 +15,7 @@ const RULES: Array<[RegExp, string]> = [
   [/should be different from the old|different from the old password|same password/i, "A nova senha precisa ser diferente da antiga."],
   [/password should be at least|password.*(too short|least \d+)/i, "A senha é muito curta. Use pelo menos 8 caracteres."],
   [/\b(weak|pwned|compromised)\b|known to be/i, "Essa senha é fraca ou já apareceu em vazamentos. Escolha outra."],
+  [/token has expired|otp.*expired|email link is invalid|otp_expired|invalid.*(otp|token)/i, "Esse código ou link não vale mais (expirou ou já foi usado). Peça um novo em “Esqueci minha senha”."],
   [/auth session missing|session.*(expired|missing)|jwt expired/i, "O link de recuperação expirou ou já foi usado. Volte ao login e peça um novo em “Esqueci minha senha”."],
   [/rate limit|too many requests|over_email_send_rate_limit|for security purposes/i, "Muitas tentativas seguidas. Aguarde um pouco e tente de novo."],
   [/failed to fetch|networkerror|load failed|network request failed|fetch failed/i, "Sem conexão com a internet. Confira e tente de novo."],
