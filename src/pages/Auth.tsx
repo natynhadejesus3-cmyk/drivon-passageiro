@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Car, Eye, EyeOff, UserPlus } from "lucide-react";
 import { SignupWizard } from "@/components/auth/SignupWizard";
 import { LegalConsent } from "@/components/LegalConsent";
@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/error-messages";
 import { readPendingInvite } from "@/lib/invite";
 import { loginWithIdentifier } from "@/lib/passenger-login";
+import { clearBootLinkError, getBootAuthLink } from "@/lib/recovery";
+import { isValidEmail } from "@/lib/signup";
+import { ForgotPassword } from "./ForgotPassword";
 import { InviteBanner } from "./Invite";
 
 /**
@@ -28,13 +31,26 @@ export function Auth({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const pendingInvite = useMemo(() => readPendingInvite(), [inviteTick]);
   // Quem chegou por um convite provavelmente ainda não tem conta: já abre no cadastro.
-  const [mode, setMode] = useState<"signin" | "signup">(pendingInvite ? "signup" : "signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">(pendingInvite ? "signup" : "signin");
   // @usuário (o mesmo do app do motorista) ou e-mail.
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Abriu por um link do e-mail que já não vale (vencido/usado): o login já começa avisando.
+  const [error, setError] = useState<string | null>(() => getBootAuthLink().error);
   const [loading, setLoading] = useState(false);
+  // O aviso do link só aparece desta vez (ao sair da conta e voltar ao login, não volta).
+  useEffect(() => clearBootLinkError(), []);
+
+  if (mode === "forgot") {
+    return (
+      <ForgotPassword
+        // Se a pessoa já digitou o e-mail no login, ele vem preenchido.
+        initialEmail={isValidEmail(identifier) ? identifier.trim() : ""}
+        onBack={() => setMode("signin")}
+      />
+    );
+  }
 
   if (mode === "signup") {
     return (
@@ -114,6 +130,19 @@ export function Auth({
               {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
             </button>
           </div>
+        </div>
+
+        <div className="-mt-1 flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setMode("forgot");
+            }}
+            className="py-1.5 text-[13px] font-medium text-primary"
+          >
+            Esqueci minha senha
+          </button>
         </div>
 
         {error && <p className="text-label text-destructive">{error}</p>}

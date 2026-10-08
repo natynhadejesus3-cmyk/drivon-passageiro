@@ -17,11 +17,12 @@ import { Home } from "./pages/Home";
 import { Invite } from "./pages/Invite";
 import { Pair } from "./pages/Pair";
 import { Profile } from "./pages/Profile";
+import { ResetPassword } from "./pages/ResetPassword";
 
 function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, loading } = useAuth();
+  const { session, loading, recovery, finishRecovery } = useAuth();
   const hideNav = location.pathname.startsWith("/chat/") || location.pathname === "/pair";
 
   // Convite que chegou pelo link do QR (câmera do celular). No navegador mostra primeiro a
@@ -67,6 +68,16 @@ function AppRoutes() {
   }
 
   if (loading) return null;
+
+  // Chegou pelo link de "esqueci minha senha": a sessão já existe, mas antes de usar o app
+  // a pessoa precisa escolher a senha nova.
+  if (recovery) {
+    return (
+      <AppShell hideNav>
+        <ResetPassword onDone={finishRecovery} />
+      </AppShell>
+    );
+  }
 
   if (!session || holdAuth) {
     return (
