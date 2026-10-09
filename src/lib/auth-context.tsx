@@ -7,10 +7,10 @@ type Ctx = {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  /** Abriu pelo link de "esqueci minha senha": o app mostra "Nova senha" até a pessoa trocar. */
+  /** Digitou o código de "esqueci minha senha": o app mostra "Nova senha" até a pessoa trocar. */
   recovery: boolean;
   finishRecovery: () => void;
-  /** O link/código do e-mail deu certo: entra na sessão de recuperação e já mostra "Nova senha". */
+  /** O código do e-mail deu certo: entra na sessão de recuperação e já mostra "Nova senha". */
   startRecovery: (session: Session) => void;
 };
 
@@ -26,7 +26,7 @@ const AuthCtx = createContext<Ctx>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  // Já nasce certo quando o app abriu pelo link do e-mail (client.ts anotou antes do Supabase ler).
+  // Já nasce certo se a página foi recarregada no meio da recuperação (a marca fica na sessão do navegador).
   const [recovering, setRecovering] = useState(() => isRecoveryPending());
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Anotou "recuperando" mas o link não rendeu sessão (já tinha vencido): solta a marca.
+  // Anotou "recuperando" mas não existe sessão (venceu ou saiu da conta): solta a marca.
   useEffect(() => {
     if (!loading && !session && recovering) {
       clearRecovery();

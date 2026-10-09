@@ -7,8 +7,8 @@ import { clearRecovery, validateNewPassword } from "@/lib/recovery";
 import { strengthLabel } from "@/lib/signup";
 
 /**
- * Tela "Nova senha": aparece no lugar do app quando a pessoa chega pelo link do e-mail de
- * "esqueci minha senha" (o Supabase já abriu uma sessão de recuperação). `onDone` libera o app.
+ * Tela "Nova senha": aparece no lugar do app quando a pessoa digita o código do e-mail de
+ * "esqueci minha senha" (o código já abriu uma sessão de recuperação). `onDone` libera o app.
  */
 export function ResetPassword({ onDone }: { onDone: () => void }) {
   const [password, setPassword] = useState("");
@@ -60,9 +60,6 @@ export function ResetPassword({ onDone }: { onDone: () => void }) {
         <button type="button" onClick={onDone} className="btn-primary flex w-full items-center justify-center">
           Continuar
         </button>
-        <p className="mt-4 px-2 text-center text-label opacity-70">
-          Usa o app instalado no celular? Volte pra ele e entre com a senha nova.
-        </p>
       </div>
     );
   }

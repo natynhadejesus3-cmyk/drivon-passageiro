@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Car, Eye, EyeOff, UserPlus } from "lucide-react";
 import { SignupWizard } from "@/components/auth/SignupWizard";
 import { LegalConsent } from "@/components/LegalConsent";
@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/error-messages";
 import { readPendingInvite } from "@/lib/invite";
 import { loginWithIdentifier } from "@/lib/passenger-login";
-import { clearBootLinkError, getBootAuthLink } from "@/lib/recovery";
 import { isValidEmail } from "@/lib/signup";
 import { ForgotPassword } from "./ForgotPassword";
 import { InviteBanner } from "./Invite";
@@ -36,11 +35,8 @@ export function Auth({
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  // Abriu por um link do e-mail que já não vale (vencido/usado): o login já começa avisando.
-  const [error, setError] = useState<string | null>(() => getBootAuthLink().error);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // O aviso do link só aparece desta vez (ao sair da conta e voltar ao login, não volta).
-  useEffect(() => clearBootLinkError(), []);
 
   if (mode === "forgot") {
     return (
