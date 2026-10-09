@@ -99,25 +99,36 @@ export function ResetPassword({ onDone }: { onDone: () => void }) {
               aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
               className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-2 text-muted-foreground"
             >
-              {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              {showPassword ? <Eye size={17} /> : <EyeOff size={17} />}
             </button>
           </div>
           {strength && <p className="mt-1 text-label opacity-70">Força: {strength}</p>}
         </div>
         <div>
           <label className="text-label">Repita a senha nova</label>
-          <Input
-            type={showPassword ? "text" : "password"}
-            required
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => {
-              setConfirm(e.target.value);
-              setError(null);
-            }}
-            placeholder="Digite de novo"
-            className="mt-1"
-          />
+          <div className="relative mt-1">
+            <Input
+              type={showPassword ? "text" : "password"}
+              required
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => {
+                setConfirm(e.target.value);
+                setError(null);
+              }}
+              placeholder="Digite de novo"
+              className="pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              tabIndex={-1}
+              aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
+              className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-2 text-muted-foreground"
+            >
+              {showPassword ? <Eye size={17} /> : <EyeOff size={17} />}
+            </button>
+          </div>
         </div>
 
         {error && <p className="text-label text-destructive">{error}</p>}

@@ -324,7 +324,7 @@ export function SignupWizard({
                       aria-label={showPw ? "Esconder senha" : "Mostrar senha"}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
                     >
-                      {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showPw ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                     </button>
                   </div>
                   <div className="mt-3 flex items-center gap-2">

@@ -123,7 +123,7 @@ export function Auth({
               aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
               className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-2 text-muted-foreground"
             >
-              {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              {showPassword ? <Eye size={17} /> : <EyeOff size={17} />}
             </button>
           </div>
         </div>
