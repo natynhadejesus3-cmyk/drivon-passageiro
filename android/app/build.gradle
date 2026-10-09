@@ -16,10 +16,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Assinatura de RELEASE (a que vai pra Play Store). A chave e as senhas ficam FORA do projeto,
+    // em ~/.gradle/gradle.properties (DRIVON_PASSAGEIRO_STORE_FILE etc.), e nunca vão pro GitHub.
+    // Sem elas, o build "release" sai sem assinatura (serve só pra conferir que compila).
+    def releaseStoreFile = project.findProperty('DRIVON_PASSAGEIRO_STORE_FILE')
+    signingConfigs {
+        if (releaseStoreFile) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword project.findProperty('DRIVON_PASSAGEIRO_STORE_PASSWORD')
+                keyAlias project.findProperty('DRIVON_PASSAGEIRO_KEY_ALIAS')
+                keyPassword project.findProperty('DRIVON_PASSAGEIRO_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseStoreFile) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
