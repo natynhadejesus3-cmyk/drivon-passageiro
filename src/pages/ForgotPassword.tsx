@@ -25,6 +25,7 @@ export function ForgotPassword({ initialEmail = "", onBack }: { initialEmail?: s
   const [code, setCode] = useState("");
   const [codeBusy, setCodeBusy] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [showCode, setShowCode] = useState(false);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -75,57 +76,52 @@ export function ForgotPassword({ initialEmail = "", onBack }: { initialEmail?: s
   if (sentTo) {
     return (
       <div className="flex h-full flex-col justify-center px-6 py-10">
-        <div className="mb-5 flex flex-col items-center gap-3">
+        <div className="mb-5 flex flex-col items-center gap-3 text-center">
           <div className="grid h-16 w-16 place-items-center rounded-3xl bg-primary-soft text-primary">
             <Mail size={28} />
           </div>
-          <h1 className="text-title">Verifique sua caixa de entrada</h1>
-        </div>
-
-        {/* Aviso bem visível: o e-mail pode cair no Spam, e quem não olha lá acha que não chegou. */}
-        <div className="rounded-2xl border-2 border-primary bg-primary-soft p-4">
-          <p className="text-body">
-            Se <b className="break-all">{sentTo}</b> tiver uma conta, o e-mail chega em até 1 minuto.
+          <h1 className="text-title">Confira seu e-mail</h1>
+          <p className="text-subtitle">
+            Se <span className="break-all text-foreground">{sentTo}</span> tiver uma conta, o link chega em instantes.
           </p>
-          <div className="mt-3 rounded-xl bg-black/25 p-3">
-            <p className="text-body font-bold text-primary">Não chegou? Olhe a pasta Spam.</p>
-            <p className="mt-1 text-label">
-              Procure por <b>Drivon</b> no <b>Spam</b> (ou Lixo eletrônico) e em <b>Promoções</b>. Se estiver lá, abra o e-mail e toque em <b>“Não é spam”</b>.
-            </p>
-          </div>
         </div>
 
-        <div className="card-elevated mt-3 space-y-2 p-5 text-label">
-          <p className="font-semibold">Depois que abrir o e-mail:</p>
-          <p>1. Toque em “Criar nova senha”.</p>
-          <p>2. Toque em “Abrir no aplicativo” e escolha a senha nova.</p>
-          <p className="pt-1 opacity-70">O link vale por pouco tempo e só pode ser usado uma vez.</p>
-        </div>
+        <p className="rounded-2xl bg-primary-soft px-4 py-3 text-center text-body">
+          Não chegou? Olhe também a pasta <b className="text-primary">Spam</b> e, se estiver lá, toque em “Não é spam”.
+        </p>
 
-        <form onSubmit={confirmCode} className="card-elevated mt-3 space-y-2 p-5">
-          <label className="text-label">O botão não abriu o app? Digite aqui o código do e-mail:</label>
-          <Input
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={12}
-            value={code}
-            onChange={(e) => {
-              setCode(normalizeRecoveryCode(e.target.value));
-              setCodeError(null);
-            }}
-            placeholder="123456"
-            className="text-center text-lg tracking-[0.3em]"
-          />
-          {codeError && <p className="text-label text-destructive">{codeError}</p>}
-          <button
-            type="submit"
-            disabled={codeBusy || code.length < 6}
-            className="btn-outline flex w-full items-center justify-center disabled:opacity-50"
-          >
-            {codeBusy ? "Conferindo..." : "Usar este código"}
+        <p className="mt-4 px-2 text-center text-label">
+          No e-mail, toque em “Criar nova senha” e depois em “Abrir no aplicativo”.
+        </p>
+
+        {showCode ? (
+          <form onSubmit={confirmCode} className="mt-4 space-y-2">
+            <Input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={12}
+              value={code}
+              onChange={(e) => {
+                setCode(normalizeRecoveryCode(e.target.value));
+                setCodeError(null);
+              }}
+              placeholder="Código de 6 números"
+              className="text-center text-lg tracking-[0.2em] placeholder:text-sm placeholder:tracking-normal"
+            />
+            {codeError && <p className="text-center text-label text-destructive">{codeError}</p>}
+            <button
+              type="submit"
+              disabled={codeBusy || code.length < 6}
+              className="btn-outline flex w-full items-center justify-center disabled:opacity-50"
+            >
+              {codeBusy ? "Conferindo..." : "Usar este código"}
+            </button>
+          </form>
+        ) : (
+          <button type="button" onClick={() => setShowCode(true)} className="mt-2 w-full py-2 text-center text-label text-primary">
+            O botão não abriu o app? Use o código do e-mail
           </button>
-        </form>
-
+        )}
         {error && <p className="mt-3 text-center text-label text-destructive">{error}</p>}
 
         <button
