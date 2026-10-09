@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Car, Eye, EyeOff, UserPlus } from "lucide-react";
 import { SignupWizard } from "@/components/auth/SignupWizard";
 import { LegalConsent } from "@/components/LegalConsent";
 import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/error-messages";
 import { readPendingInvite } from "@/lib/invite";
+import { clearFlash, peekFlash } from "@/lib/delete-account";
 import { loginWithIdentifier } from "@/lib/passenger-login";
 import { isValidEmail } from "@/lib/signup";
 import { ForgotPassword } from "./ForgotPassword";
@@ -37,6 +38,9 @@ export function Auth({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Aviso de uma vez só (ex.: "Sua conta foi excluída."), guardado pela tela anterior.
+  const [flash] = useState<string | null>(() => peekFlash());
+  useEffect(() => clearFlash(), []);
 
   if (mode === "forgot") {
     return (
@@ -85,6 +89,8 @@ export function Auth({
         <h1 className="text-title">Drivon Passageiro</h1>
         <p className="text-center text-subtitle">Entre pra ver seus motoristas</p>
       </div>
+
+      {flash && <p className="mb-4 rounded-2xl bg-primary-soft px-4 py-3 text-center text-body">{flash}</p>}
 
       {pendingInvite && <InviteBanner code={pendingInvite} />}
 

@@ -1,4 +1,4 @@
-import { Bell, Camera, ChevronRight, ExternalLink, FileText, Image as ImageIcon, LogOut, Mail, PartyPopper, User, X } from "lucide-react";
+import { Bell, Camera, ChevronRight, ExternalLink, FileText, Image as ImageIcon, LogOut, Mail, PartyPopper, Trash2, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
@@ -195,6 +195,14 @@ export function Profile() {
                 label="Sair da conta"
                 destructive
                 onClick={() => supabase.auth.signOut()}
+              />
+            </div>
+            <div className="border-t border-[color:var(--color-hairline)]">
+              <SettingsRow
+                icon={<Trash2 size={16} />}
+                label="Excluir minha conta"
+                destructive
+                onClick={() => navigate("/excluir-conta")}
               />
             </div>
           </div>
