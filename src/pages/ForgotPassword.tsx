@@ -75,20 +75,31 @@ export function ForgotPassword({ initialEmail = "", onBack }: { initialEmail?: s
   if (sentTo) {
     return (
       <div className="flex h-full flex-col justify-center px-6 py-10">
-        <div className="mb-6 flex flex-col items-center gap-3">
+        <div className="mb-5 flex flex-col items-center gap-3">
           <div className="grid h-16 w-16 place-items-center rounded-3xl bg-primary-soft text-primary">
             <Mail size={28} />
           </div>
-          <h1 className="text-title">Confira seu e-mail</h1>
-          <p className="text-center text-subtitle">
-            Se <b className="break-all">{sentTo}</b> tiver uma conta, o e-mail chega em instantes.
-          </p>
+          <h1 className="text-title">Verifique sua caixa de entrada</h1>
         </div>
 
-        <div className="card-elevated space-y-2 p-5 text-label">
-          <p>1. Abra o e-mail e toque em “Criar nova senha”.</p>
+        {/* Aviso bem visível: o e-mail pode cair no Spam, e quem não olha lá acha que não chegou. */}
+        <div className="rounded-2xl border-2 border-primary bg-primary-soft p-4">
+          <p className="text-body">
+            Se <b className="break-all">{sentTo}</b> tiver uma conta, o e-mail chega em até 1 minuto.
+          </p>
+          <div className="mt-3 rounded-xl bg-black/25 p-3">
+            <p className="text-body font-bold text-primary">Não chegou? Olhe a pasta Spam.</p>
+            <p className="mt-1 text-label">
+              Procure por <b>Drivon</b> no <b>Spam</b> (ou Lixo eletrônico) e em <b>Promoções</b>. Se estiver lá, abra o e-mail e toque em <b>“Não é spam”</b>.
+            </p>
+          </div>
+        </div>
+
+        <div className="card-elevated mt-3 space-y-2 p-5 text-label">
+          <p className="font-semibold">Depois que abrir o e-mail:</p>
+          <p>1. Toque em “Criar nova senha”.</p>
           <p>2. Toque em “Abrir no aplicativo” e escolha a senha nova.</p>
-          <p className="pt-1 opacity-70">Não chegou? Olhe a caixa de spam. O link vale por pouco tempo.</p>
+          <p className="pt-1 opacity-70">O link vale por pouco tempo e só pode ser usado uma vez.</p>
         </div>
 
         <form onSubmit={confirmCode} className="card-elevated mt-3 space-y-2 p-5">
