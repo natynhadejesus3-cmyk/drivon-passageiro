@@ -80,23 +80,43 @@ export async function pairWithDriver(code: string, displayName?: string): Promis
   return result;
 }
 
+/**
+ * Quem sou eu (da sessão guardada no aparelho, sem ir à rede). Os dois apps usam a mesma conta: uma pessoa
+ * pode ser motorista E passageira, e o banco devolve as conversas dos dois papéis. Aqui só interessam as
+ * em que EU sou o passageiro: nas outras eu sou o motorista e não posso enviar como passageiro.
+ */
+async function myUserId(): Promise<string | null> {
+  return (await supabase.auth.getSession()).data.session?.user.id ?? null;
+}
+
 export async function getLinks(): Promise<DriverPassengerLink[]> {
+  const uid = await myUserId();
+  if (!uid) return [];
   const { data, error } = await supabase
     .from("driver_passenger_links")
     .select("*")
+    .eq("passenger_id", uid)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
 }
 
 export async function getLink(linkId: string): Promise<DriverPassengerLink | null> {
+  const uid = await myUserId();
+  if (!uid) return null;
   const { data, error } = await supabase
     .from("driver_passenger_links")
     .select("*")
     .eq("id", linkId)
+    .eq("passenger_id", uid)
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+/** Ids das conversas em que sou o passageiro (pra filtrar mensagens, que não têm o passageiro na linha). */
+async function myLinkIds(): Promise<string[]> {
+  return (await getLinks()).map((l) => l.id);
 }
 
 export async function unlinkDriver(linkId: string): Promise<void> {
@@ -163,13 +183,16 @@ export async function markRead(messageId: string): Promise<void> {
 
 /**
  * Quantas mensagens do motorista estão sem ler em cada conversa (mapa linkId -> quantidade), contando
- * só as que vieram DEPOIS da última resposta do passageiro (respondeu, o aviso some). O banco só
- * devolve as conversas do próprio passageiro (regras de acesso), então não precisa filtrar por quem é.
+ * só as que vieram DEPOIS da última resposta do passageiro (respondeu, o aviso some). Só das conversas
+ * em que EU sou o passageiro (a mesma conta pode ser motorista em outras, ver myUserId).
  */
 export async function getUnreadByLink(): Promise<Record<string, number>> {
+  const ids = await myLinkIds();
+  if (ids.length === 0) return {};
   const { data, error } = await supabase
     .from("chat_messages")
     .select("link_id, sender_role, read_at, created_at")
+    .in("link_id", ids)
     .order("created_at", { ascending: false })
     .limit(400);
   if (error) throw error;
@@ -200,11 +223,14 @@ export function subscribeToInbox(onChange: () => void, onReconnect?: () => void)
       }
     });
 }
-/** Ride requests the driver has confirmed — across every paired driver. */
+/** Ride requests the driver has confirmed — across every paired driver (only conversations where I am the passenger). */
 export async function getConfirmedRides(): Promise<ChatMessage[]> {
+  const ids = await myLinkIds();
+  if (ids.length === 0) return [];
   const { data, error } = await supabase
     .from("chat_messages")
     .select("*")
+    .in("link_id", ids)
     .eq("is_ride_request", true)
     .eq("ride_confirmed", true)
     .order("created_at", { ascending: false });
