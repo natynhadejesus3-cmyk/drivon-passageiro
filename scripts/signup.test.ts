@@ -5,8 +5,11 @@
 import { errorMessage } from "../src/lib/error-messages";
 import {
   SIGNUP_STEPS,
+  existingAccountMessage,
   firstNameOf,
+  isAlreadyRegistered,
   isValidEmail,
+  isWrongCredentials,
   nextStepIndex,
   passwordScore,
   stepForSignupError,
@@ -60,5 +63,43 @@ check("senha fraca volta pra senha", stepForSignupError(msg("Password is known t
 check("senha curta volta pra senha", stepForSignupError(msg("Password should be at least 6 characters.")), "password");
 check("sem internet não volta pra lugar nenhum", stepForSignupError(msg("Failed to fetch")), null);
 check("muitas tentativas não volta pra lugar nenhum", stepForSignupError(msg("For security purposes, you can only request this after 45 seconds.")), null);
+
+// --- E-mail que já tem conta (por exemplo, a do motorista): a conta é a mesma nos dois apps ---------
+check(
+  "cadastro recusado por 'User already registered' = e-mail já existe",
+  [isAlreadyRegistered(new Error("User already registered")), isAlreadyRegistered({ message: "A user with this email address has already been registered" })],
+  [true, true],
+);
+check("confirmação de e-mail ligada: resposta sem identidades = e-mail já existe", isAlreadyRegistered(null, { identities: [] }), true);
+check(
+  "conta nova de verdade (com identidade) não é 'já existe'",
+  [isAlreadyRegistered(null, { identities: [{ provider: "email" }] }), isAlreadyRegistered(null, { identities: null }), isAlreadyRegistered(null, null)],
+  [false, false, false],
+);
+check(
+  "outros erros não são 'já existe'",
+  [isAlreadyRegistered(new Error("Password is known to be weak")), isAlreadyRegistered(new Error("Failed to fetch")), isAlreadyRegistered(undefined)],
+  [false, false, false],
+);
+check(
+  "senha errada no login = credenciais erradas (nas duas frases que o app pode receber)",
+  [isWrongCredentials("Usuário ou senha inválidos."), isWrongCredentials("Usuário ou senha inválidos. Restam 1 tentativa antes do bloqueio temporário."), isWrongCredentials("E-mail ou senha incorretos.")],
+  [true, true, true],
+);
+check(
+  "bloqueio e falta de rede NÃO são 'senha errada' (passam como vieram)",
+  [isWrongCredentials("Muitas tentativas de login. Tente de novo em 15 minutos."), isWrongCredentials("Sem conexão com a internet. Confira e tente de novo.")],
+  [false, false],
+);
+check(
+  "aviso pra quem digitou a senha errada de uma conta que já existe",
+  existingAccountMessage("Usuário ou senha inválidos.").startsWith("Esse e-mail já tem uma conta no Drivon (pode ser a de motorista)."),
+  true,
+);
+check(
+  "o aviso de tentativas restantes é mantido",
+  existingAccountMessage("Usuário ou senha inválidos. Restam 1 tentativa antes do bloqueio temporário.").endsWith("Restam 1 tentativa antes do bloqueio temporário."),
+  true,
+);
 
 console.log(results.join("\n"));

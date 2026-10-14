@@ -20,7 +20,9 @@ export function usePresence() {
     void setPassengerPresence(userId, true).catch(() => {});
     // Sem isso, o motorista só vê o nome do passageiro depois que ele abrir
     // a tela de perfil manualmente — o nome do cadastro nunca chegava lá.
-    void seedPassengerNameIfMissing(userId, user.user_metadata?.display_name as string | undefined).catch(() => {});
+    // Conta que nasceu no app do motorista não tem display_name: usa o nome do cadastro dele (full_name).
+    const meta = user.user_metadata as { display_name?: string; full_name?: string } | undefined;
+    void seedPassengerNameIfMissing(userId, meta?.display_name || meta?.full_name).catch(() => {});
 
     // Guarda o token da sessão pra poder gravar "offline" mesmo com o app sendo congelado.
     const stopTracking = trackAccessToken();

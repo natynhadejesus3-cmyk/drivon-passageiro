@@ -10,7 +10,7 @@ const RULES: Array<[RegExp, string]> = [
   [/invalid pairing code/i, "Código de pareamento inválido. Confira o código com o motorista."],
   [/not authenticated/i, "Entre na sua conta para continuar."],
   [/invalid login credentials|invalid credentials/i, "E-mail ou senha incorretos."],
-  [/user already registered|already been registered|already exists/i, "Esse e-mail já está cadastrado. Tente entrar."],
+  [/user already registered|already been registered|already exists/i, "Esse e-mail já tem uma conta no Drivon (pode ser a de motorista). Entre com ela: a conta é a mesma nos dois apps."],
   [/email not confirmed/i, "Confirme seu e-mail pelo link que enviamos antes de entrar."],
   [/should be different from the old|different from the old password|same password/i, "A nova senha precisa ser diferente da antiga."],
   [/password should be at least|password.*(too short|least \d+)/i, "A senha é muito curta. Use pelo menos 8 caracteres."],

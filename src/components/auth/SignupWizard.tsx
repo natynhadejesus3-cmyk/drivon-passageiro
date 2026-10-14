@@ -4,10 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { errorMessage } from "@/lib/error-messages";
 import { readPendingInvite } from "@/lib/invite";
+import { loginWithIdentifier } from "@/lib/passenger-login";
 import { upsertPassengerProfile } from "@/lib/repository";
 import {
   SIGNUP_STEPS,
+  existingAccountMessage,
   firstNameOf,
+  isAlreadyRegistered,
+  isWrongCredentials,
   nextStepIndex,
   passwordScore,
   stepForSignupError,
@@ -176,18 +180,38 @@ export function SignupWizard({
         password,
         options: { data: { user_type: "passenger", display_name: name.trim() } },
       });
-      if (signUpError) throw signUpError;
 
-      // Projeto com confirmação de e-mail ligada: a conta nasce sem sessão. Avisa pra confirmar.
-      if (!data.session) {
-        onRelease();
-        go("verify", "fwd");
-        return;
+      // O e-mail já tem conta (os dois apps usam o mesmo cadastro; é o caso de quem já é motorista).
+      // Em vez de barrar, tenta entrar nela com a senha que a pessoa acabou de digitar: se for a dela,
+      // a MESMA conta passa a funcionar também como passageiro. Passa pelo login do servidor (e não
+      // direto pelo Supabase) para valer o mesmo bloqueio de tentativas do login normal.
+      let userId: string | undefined = data.session?.user.id;
+      if (isAlreadyRegistered(signUpError, data.user)) {
+        try {
+          await loginWithIdentifier(email.trim(), password);
+        } catch (e) {
+          const msg = errorMessage(e, "Não foi possível entrar agora.");
+          onRelease();
+          go("password", "back");
+          setError(isWrongCredentials(msg) ? existingAccountMessage(msg) : msg);
+          return;
+        }
+        userId = (await supabase.auth.getSession()).data.session?.user.id;
+        if (!userId) throw new Error("Não foi possível entrar agora. Tente de novo.");
+      } else {
+        if (signUpError) throw signUpError;
+
+        // Projeto com confirmação de e-mail ligada: a conta nasce sem sessão. Avisa pra confirmar.
+        if (!data.session) {
+          onRelease();
+          go("verify", "fwd");
+          return;
+        }
       }
 
       // Foto e nome vão pro perfil que o motorista vê. Se falhar, a conta já existe: segue.
       try {
-        await upsertPassengerProfile(data.session.user.id, {
+        await upsertPassengerProfile(userId!, {
           full_name: name.trim(),
           ...(photo ? { avatar_url: photo } : {}),
         });

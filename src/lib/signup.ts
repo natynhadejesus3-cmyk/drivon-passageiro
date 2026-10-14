@@ -70,6 +70,37 @@ export function nextStepIndex(
 }
 
 /**
+ * O Supabase recusou o cadastro porque esse e-mail JÁ tem conta? Os dois apps (motorista e passageiro)
+ * usam o mesmo cadastro de contas, então o e-mail de um motorista cai aqui. Dois jeitos de ele avisar:
+ * erro "User already registered", ou (com confirmação de e-mail ligada) uma resposta "de sucesso"
+ * com a lista de identidades VAZIA, sem criar nada.
+ */
+export function isAlreadyRegistered(
+  error: unknown,
+  user?: { identities?: unknown[] | null } | null,
+): boolean {
+  const msg = (error as { message?: unknown } | null)?.message;
+  if (typeof msg === "string" && /user already registered|already been registered|already exists/i.test(msg)) return true;
+  return !error && !!user && Array.isArray(user.identities) && user.identities.length === 0;
+}
+
+/** O login recusou por usuário/senha errados (e não por bloqueio ou falta de rede)? */
+export function isWrongCredentials(message: string): boolean {
+  return /usu[aá]rio ou senha inv[aá]lidos|e-?mail ou senha incorretos|invalid login credentials/i.test(message);
+}
+
+/**
+ * Texto para quem tentou criar conta com um e-mail que já existe e digitou uma senha que não é a dela.
+ * `loginMessage` é a resposta do login (pode trazer "Restam 1 tentativa antes do bloqueio"): esse aviso é mantido.
+ */
+export function existingAccountMessage(loginMessage: string): string {
+  const tail = loginMessage.replace(/^usu[aá]rio ou senha inv[aá]lidos\.?\s*/i, "").trim();
+  const base =
+    "Esse e-mail já tem uma conta no Drivon (pode ser a de motorista). Para usar o app do passageiro com ela, digite a MESMA senha dela. Esqueceu? Volte ao login e toque em “Esqueci minha senha”.";
+  return tail ? `${base} ${tail}` : base;
+}
+
+/**
  * Se a criação da conta falhar, volta pra etapa do campo com problema em vez de deixar a
  * pessoa perdida na última tela. Recebe a mensagem JÁ em português (errorMessage()).
  */

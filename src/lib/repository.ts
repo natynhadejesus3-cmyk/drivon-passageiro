@@ -70,6 +70,12 @@ export async function pairWithDriver(code: string, displayName?: string): Promis
   // an array of rows (one, here) — never a bare object.
   const result = (data as PairWithDriverResult[])?.[0];
   if (!result) throw new Error("Código de pareamento inválido.");
+  // A mesma conta pode ser motorista E passageiro: ninguém conversa com o próprio QR.
+  const myId = (await supabase.auth.getSession()).data.session?.user.id;
+  if (myId && result.driver_id === myId) {
+    await unlinkDriver(result.link_id).catch(() => {});
+    throw new Error("Esse é o seu próprio código de motorista. Use o código de outro motorista.");
+  }
   cacheDriverName(result.driver_id, result.driver_name);
   return result;
 }
