@@ -238,6 +238,24 @@ export async function getConfirmedRides(): Promise<ChatMessage[]> {
   return data ?? [];
 }
 
+/**
+ * Todos os pedidos de corrida que fiz (aceitos, cancelados ou sem resposta), os mais recentes primeiro.
+ * Alimenta a Agenda e o Histórico (ver lib/agenda.ts, que decide o que aparece em cada um).
+ */
+export async function getRideRequests(): Promise<ChatMessage[]> {
+  const ids = await myLinkIds();
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("*")
+    .in("link_id", ids)
+    .eq("is_ride_request", true)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** Nome/foto/status real do motorista — só devolve algo se o pareamento existir de verdade (checado dentro da view). */
 export async function getDriverPublicProfile(driverId: string): Promise<DriverPublicProfile | null> {
   const { data, error } = await supabase

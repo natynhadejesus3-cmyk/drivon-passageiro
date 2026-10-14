@@ -1,14 +1,12 @@
-import { Bell, CalendarClock } from "lucide-react";
+import { Bell, CalendarClock, ChevronDown, History } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
 import { CancelRideControl } from "../components/CancelRideControl";
-import { useConfirmedRides, useLinks } from "@/lib/hooks";
+import { HISTORY_LABEL, HISTORY_LIMIT, historyStatus, rideTime, splitAgenda } from "@/lib/agenda";
+import { useRideRequests, useLinks } from "@/lib/hooks";
 import { getCachedDriverName } from "@/lib/repository";
 import type { ChatMessage } from "@/integrations/supabase/types";
-
-// Passou disso do horário, a corrida vai pra "Anteriores".
-const PAST_AFTER_MS = 30 * 60_000;
 
 const startOfDay = (d: Date) => {
   const x = new Date(d);
@@ -45,8 +43,6 @@ function tone(ms: number) {
   if (mins <= 40) return { text: "text-warning", dot: "bg-warning" };
   return { text: "text-success", dot: "bg-success" };
 }
-
-type Item = { ride: ChatMessage; at: number };
 
 function RouteLine({ filled, children }: { filled?: boolean; children: React.ReactNode }) {
   return (
@@ -152,11 +148,66 @@ export function AgendaRideCard({
   );
 }
 
+/**
+ * Histórico: o que já saiu da Agenda (1 dia depois do horário, feito ou não, ou depois de cancelado).
+ * Bem discreto: fechado por padrão, uma linha pequena por corrida. Nada é apagado do banco.
+ */
+export function AgendaHistory({ items, nameFor }: { items: ChatMessage[]; nameFor: (linkId: string) => string }) {
+  const [open, setOpen] = useState(false);
+  if (items.length === 0) return null;
+  const shown = items.slice(0, HISTORY_LIMIT);
+  return (
+    <div className="mt-8">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-1 py-1 text-[11px] font-semibold text-muted-foreground"
+      >
+        <span className="flex items-center gap-1.5">
+          <History size={13} />
+          Histórico · {items.length}
+        </span>
+        <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <ul className="mt-2 divide-y divide-[color:var(--color-hairline)] overflow-hidden rounded-2xl border border-[color:var(--color-hairline)]">
+          {shown.map((m) => {
+            const at = rideTime(m);
+            const status = historyStatus(m);
+            return (
+              <li key={m.id} className="flex items-center gap-2.5 px-3 py-2 text-[12px]">
+                <span className="w-[72px] shrink-0 tabular-nums text-muted-foreground">
+                  {new Date(at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} {timeLabel(at)}
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  {nameFor(m.link_id).split(" ")[0]} · {m.destination_label ?? m.body}
+                </span>
+                <span
+                  className={`shrink-0 text-[10px] font-bold uppercase ${
+                    status === "confirmed" ? "text-muted-foreground" : status === "unanswered" ? "text-muted-foreground/70" : "text-destructive"
+                  }`}
+                >
+                  {HISTORY_LABEL[status]}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function Agenda() {
   const { links } = useLinks();
-  const { rides, refetch } = useConfirmedRides();
+  const { rides, refetch } = useRideRequests();
   const [now, setNow] = useState(() => Date.now());
   const driverIdByLink = new Map(links.map((l) => [l.id, l.driver_id]));
+  const nameFor = (linkId: string) => {
+    const driverId = driverIdByLink.get(linkId);
+    return driverId ? getCachedDriverName(driverId) : "Motorista";
+  };
 
   // Contagem regressiva viva, e a lista se atualiza sozinha (uma corrida
   // confirmada agora pelo motorista aparece aqui sem precisar sair e voltar).
@@ -169,25 +220,20 @@ export function Agenda() {
     return () => clearInterval(id);
   }, [refetch]);
 
-  const items: Item[] = rides.map((ride) => ({ ride, at: new Date(ride.requested_at ?? ride.created_at).getTime() }));
-  // Cancelada (por qualquer um dos dois) sai de "próximas" e "anteriores" e vai pra sua própria seção.
-  const live = items.filter((i) => !i.ride.cancelled_at);
-  const cancelled = items.filter((i) => i.ride.cancelled_at).sort((a, b) => b.at - a.at).slice(0, 20);
-  const upcoming = live.filter((i) => i.at >= now - PAST_AFTER_MS).sort((a, b) => a.at - b.at);
-  const past = live.filter((i) => i.at < now - PAST_AFTER_MS).sort((a, b) => b.at - a.at);
+  // Quem sai da Agenda (1 dia depois do horário / do cancelamento) vai pro Histórico: ver lib/agenda.ts.
+  const { upcoming, recent, cancelled, history } = splitAgenda(rides, now);
 
-  function card({ ride, at }: Item, isPast: boolean) {
-    const driverId = driverIdByLink.get(ride.link_id);
+  function card(ride: ChatMessage, isPast: boolean) {
     return (
       <AgendaRideCard
         key={ride.id}
         messageId={ride.id}
-        driverName={driverId ? getCachedDriverName(driverId) : "Motorista"}
+        driverName={nameFor(ride.link_id)}
         linkId={ride.link_id}
         body={ride.body}
         originLabel={ride.origin_label}
         destinationLabel={ride.destination_label}
-        at={at}
+        at={rideTime(ride)}
         now={now}
         isPast={isPast}
         cancelledBy={ride.cancelled_at ? (ride.cancelled_by ?? "driver") : null}
@@ -196,13 +242,15 @@ export function Agenda() {
     );
   }
 
+  const nothingOnAgenda = upcoming.length + recent.length + cancelled.length === 0;
+
   return (
     <div>
       <ScreenHeader title="Corridas agendadas" subtitle="Confirmadas pelos motoristas no chat" />
 
       <div className="space-y-2 px-5 pb-6">
-        {rides.length === 0 && (
-          <div className="mt-16 flex flex-col items-center gap-3 px-6 text-center text-muted-foreground">
+        {nothingOnAgenda && (
+          <div className={`flex flex-col items-center gap-3 px-6 text-center text-muted-foreground ${history.length > 0 ? "mt-10" : "mt-16"}`}>
             <CalendarClock size={40} />
             <p className="text-body">Nenhuma corrida confirmada ainda. Peça uma corrida pra algum motorista no chat.</p>
           </div>
@@ -214,23 +262,25 @@ export function Agenda() {
               <Bell size={14} className="shrink-0" />
               Você recebe um aviso 40, 20, 10 e 5 minutos antes, e na hora da corrida.
             </div>
-            {upcoming.map((i) => card(i, false))}
+            {upcoming.map((r) => card(r, false))}
           </>
         )}
 
-        {past.length > 0 && (
+        {recent.length > 0 && (
           <>
             <p className="section-label mb-1 mt-6">Anteriores</p>
-            {past.map((i) => card(i, true))}
+            {recent.map((r) => card(r, true))}
           </>
         )}
 
         {cancelled.length > 0 && (
           <>
             <p className="section-label mb-1 mt-6">Canceladas</p>
-            {cancelled.map((i) => card(i, true))}
+            {cancelled.map((r) => card(r, true))}
           </>
         )}
+
+        <AgendaHistory items={history} nameFor={nameFor} />
       </div>
     </div>
   );

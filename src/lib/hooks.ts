@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ChatMessage, DriverPassengerLink, DriverPublicProfile } from "@/integrations/supabase/types";
-import { getConfirmedRides, getDriverPublicProfile, getLink, getLinks, getMessages, getUnreadByLink, subscribeToChat, subscribeToInbox } from "./repository";
+import { getDriverPublicProfile, getLink, getLinks, getMessages, getRideRequests, getUnreadByLink, subscribeToChat, subscribeToInbox } from "./repository";
 
 function useRefetchOnFocus(refetch: () => void) {
   useEffect(() => {
@@ -115,14 +115,15 @@ export function useDriverProfile(driverId: string | undefined, pollMs = 8_000) {
   return { profile, refetch };
 }
 
-export function useConfirmedRides() {
+/** Pedidos de corrida da pessoa (qualquer situação); a Agenda separa o que é agenda e o que é histórico. */
+export function useRideRequests() {
   const [rides, setRides] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refetch = useCallback(() => {
-    getConfirmedRides()
+    getRideRequests()
       .then(setRides)
-      .catch((e) => console.error("[drivon] getConfirmedRides failed", e))
+      .catch((e) => console.error("[drivon] getRideRequests failed", e))
       .finally(() => setLoading(false));
   }, []);
 
