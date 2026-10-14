@@ -4,6 +4,14 @@ import { saveFcmToken } from "../repository";
 
 const CHANNEL_ID = "drivon_passageiro_default";
 
+// Canal com o som próprio das MENSAGENS do motorista (res/raw/mensagem_nova.mp3). O arquivo só existe a
+// partir do APK de build 2: o app marca o build junto do token (drivon-build/N) e o servidor só usa
+// este canal nos aparelhos que o têm; em APK antigo ele nem é criado e tudo segue como antes.
+const MESSAGE_CHANNEL_ID = "drivon_passageiro_messages_v1";
+const MESSAGE_SOUND = "mensagem_nova";
+const MESSAGE_CHANNEL_MIN_BUILD = 2;
+let appBuild = 0;
+
 const NATIVE_PUSH_ENABLED = true;
 
 let started = false;
@@ -47,6 +55,21 @@ export async function initNativePush(userId: string, navigate: NavigateFn): Prom
       vibration: true,
     }).catch((e) => setStatus(`createChannel falhou: ${e}`));
 
+    const { App } = await import("@capacitor/app");
+    const info = await App.getInfo().catch(() => null);
+    appBuild = Number(info?.build) || 0;
+    if (appBuild >= MESSAGE_CHANNEL_MIN_BUILD) {
+      await PushNotifications.createChannel({
+        id: MESSAGE_CHANNEL_ID,
+        name: "Mensagens",
+        description: "Avisos de novas mensagens do motorista",
+        importance: 5,
+        visibility: 1,
+        sound: MESSAGE_SOUND,
+        vibration: true,
+      }).catch((e) => setStatus(`createChannel (mensagens) falhou: ${e}`));
+    }
+
     await PushNotifications.addListener("registration", (t) => {
       setStatus(`token recebido, salvando...`);
       void persistToken(userId, t.value);
@@ -81,7 +104,9 @@ export async function initNativePush(userId: string, navigate: NavigateFn): Prom
 async function persistToken(userId: string, token: string) {
   if (!token) return;
   try {
-    await saveFcmToken(userId, getDeviceId(), token, `android-capacitor ${navigator.userAgent}`.slice(0, 400));
+    // a marca drivon-build/N fica no COMEÇO (o texto é cortado em 400 caracteres)
+    const ua = `android-capacitor${appBuild ? ` drivon-build/${appBuild}` : ""} ${navigator.userAgent}`.slice(0, 400);
+    await saveFcmToken(userId, getDeviceId(), token, ua);
     setStatus(`token salvo com sucesso (${token.slice(0, 12)}...)`);
   } catch (e) {
     setStatus(`falha ao salvar token: ${e}`);
