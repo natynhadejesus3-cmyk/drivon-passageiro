@@ -102,4 +102,16 @@ check(
   true,
 );
 
+// --- Envio de mensagem recusado pelo banco: a pessoa vê o motivo (antes o erro sumia) -----------------
+check(
+  "envio recusado por falta de permissão interna do banco",
+  errorMessage({ code: "42501", message: "permission denied for function my_has_access" }),
+  "O servidor recusou o envio por falta de permissão interna (código: permissao-interna). Avise o suporte.",
+);
+check(
+  "envio recusado pela regra de segurança da conversa",
+  errorMessage({ code: "42501", message: 'new row violates row-level security policy for table "chat_messages"' }),
+  "O servidor recusou o envio nesta conversa (código: regra-da-conversa). Saia da conta, entre de novo e tente outra vez.",
+);
+
 console.log(results.join("\n"));

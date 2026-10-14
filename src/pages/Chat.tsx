@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { CancelRideControl } from "../components/CancelRideControl";
+import { errorMessage } from "@/lib/error-messages";
 import type { ChatMessage } from "@/integrations/supabase/types";
 import { DriverAvatar } from "../components/DriverAvatar";
 import { useAuth } from "@/lib/auth-context";
@@ -114,6 +115,8 @@ export function Chat() {
   const [sending, setSending] = useState(false);
   const [estimate, setEstimate] = useState<{ distanceKm: number; perKm: number; price: number } | null>(null);
   const [estimating, setEstimating] = useState(false);
+  // Motivo de o envio ter falhado (mensagem ou pedido de corrida); some ao digitar de novo.
+  const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   // Só pra forçar o "Visto há X minutos" a se atualizar sozinho com o tempo.
   const [, tick] = useState(0);
@@ -310,6 +313,10 @@ export function Chat() {
       setAskingRide(false);
       clearRideDraft(linkId);
       refetch();
+    } catch (e) {
+      // Antes o erro sumia em silêncio e o botão parecia "não fazer nada".
+      console.error("[drivon] pedido de corrida não enviou", e);
+      setSendError(errorMessage(e, "Não foi possível enviar o pedido agora. Tente de novo."));
     } finally {
       setSending(false);
     }
@@ -319,10 +326,15 @@ export function Chat() {
     if (!text.trim() || !user) return;
     stopTyping();
     setSending(true);
+    setSendError(null);
     try {
       await sendMessage(linkId, user.id, text.trim(), false);
       setText("");
       refetch();
+    } catch (e) {
+      console.error("[drivon] mensagem não enviou", e);
+      // O texto continua no campo: a pessoa não perde o que escreveu.
+      setSendError(errorMessage(e, "Não foi possível enviar a mensagem agora. Tente de novo."));
     } finally {
       setSending(false);
     }
@@ -552,6 +564,12 @@ export function Chat() {
         </div>
       )}
 
+      {sendError && (
+        <p role="alert" className="border-t border-[color:var(--color-hairline)] bg-destructive/10 px-4 py-2 text-[12px] font-semibold text-destructive">
+          {sendError}
+        </p>
+      )}
+
       <div className="flex items-center gap-2 border-t border-[color:var(--color-hairline)] px-3 py-3">
         <button
           onClick={openRideRequest}
@@ -564,6 +582,7 @@ export function Chat() {
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            setSendError(null);
             notifyTyping(e.target.value.trim().length > 0);
           }}
           onBlur={stopTyping}
