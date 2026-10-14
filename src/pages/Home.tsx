@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
 import { DriverAvatar } from "../components/DriverAvatar";
 import { formatLastSeen } from "@/lib/format";
-import { useDriverProfile, useLinks } from "@/lib/hooks";
+import { useDriverProfile, useLinks, useUnreadByLink } from "@/lib/hooks";
+import { unreadLabel } from "@/lib/chat-unread";
 import { getCachedDriverName, unlinkDriver } from "@/lib/repository";
 import type { DriverPassengerLink } from "@/integrations/supabase/types";
 
 export function Home() {
   const { links, loading, refetch } = useLinks();
+  const unread = useUnreadByLink();
 
   async function handleUnlink(e: React.MouseEvent, linkId: string) {
     e.preventDefault();
@@ -43,6 +45,7 @@ export function Home() {
                 key={link.id}
                 link={link}
                 last={i === links.length - 1}
+                unread={unread[link.id] ?? 0}
                 onUnlink={(e) => handleUnlink(e, link.id)}
               />
             ))}
@@ -68,10 +71,12 @@ export function Home() {
 function DriverRow({
   link,
   last,
+  unread,
   onUnlink,
 }: {
   link: DriverPassengerLink;
   last: boolean;
+  unread: number;
   onUnlink: (e: React.MouseEvent) => void;
 }) {
   const { profile } = useDriverProfile(link.driver_id);
@@ -87,7 +92,14 @@ function DriverRow({
     >
       <DriverAvatar name={name} avatarUrl={profile?.avatar_url} online={online} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">{name}</p>
+        <div className="flex items-center gap-2">
+          <p className="truncate font-semibold">{name}</p>
+          {unread > 0 && (
+            <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
+              {unreadLabel(unread)}
+            </span>
+          )}
+        </div>
         <p className="truncate text-label">
           {online ? <span className="text-success">Online agora</span> : formatLastSeen(profile?.last_seen_at)}
         </p>

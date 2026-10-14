@@ -14,6 +14,7 @@ import {
 } from "@/lib/services/location-service";
 import type { AddressSuggestion } from "@/lib/services/pelias-search-service";
 import { routeDistance } from "@/lib/routing";
+import { useIncomingMessageSound } from "@/lib/use-incoming-message-sound";
 import { useTypingIndicator } from "@/lib/use-typing-indicator";
 import { TypingBubble } from "../components/TypingBubble";
 
@@ -85,7 +86,9 @@ export function Chat() {
   const { user } = useAuth();
   const { link, loading: linkLoading } = useLink(linkId);
   const { profile } = useDriverProfile(link?.driver_id);
-  const { messages, refetch } = useMessages(linkId);
+  const { messages, loading: messagesLoading, refetch } = useMessages(linkId);
+  // Som de mensagem nova do motorista (só com a conversa aberta e o app à vista; abrir a conversa não toca nada).
+  useIncomingMessageSound(messages, "passenger", !messagesLoading, linkId);
   const [text, setText] = useState("");
   const [rideDraft] = useState(() => loadRideDraft(linkId));
   const [origin, setOrigin] = useState(rideDraft.origin ?? "");

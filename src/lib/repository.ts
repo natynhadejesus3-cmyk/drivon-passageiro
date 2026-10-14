@@ -7,6 +7,7 @@ import type {
   PairWithDriverResult,
   PassengerProfile,
 } from "@/integrations/supabase/types";
+import { countUnreadAfterMyLast } from "@/lib/chat-unread";
 import { parseInviteCode } from "@/lib/invite";
 
 /**
@@ -154,6 +155,45 @@ export async function markRead(messageId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Quantas mensagens do motorista estão sem ler em cada conversa (mapa linkId -> quantidade), contando
+ * só as que vieram DEPOIS da última resposta do passageiro (respondeu, o aviso some). O banco só
+ * devolve as conversas do próprio passageiro (regras de acesso), então não precisa filtrar por quem é.
+ */
+export async function getUnreadByLink(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("link_id, sender_role, read_at, created_at")
+    .order("created_at", { ascending: false })
+    .limit(400);
+  if (error) throw error;
+  const byLink = new Map<string, { sender_role: string; read_at: string | null }[]>();
+  for (const m of data ?? []) {
+    const list = byLink.get(m.link_id as string) ?? [];
+    list.push({ sender_role: m.sender_role as string, read_at: (m.read_at as string | null) ?? null });
+    byLink.set(m.link_id as string, list);
+  }
+  const out: Record<string, number> = {};
+  for (const [linkId, list] of byLink) {
+    const n = countUnreadAfterMyLast(list, "passenger");
+    if (n > 0) out[linkId] = n;
+  }
+  return out;
+}
+
+/** Avisa quando QUALQUER mensagem das conversas do passageiro muda (pra a lista atualizar na hora). */
+export function subscribeToInbox(onChange: () => void, onReconnect?: () => void): RealtimeChannel {
+  let subscribedOnce = false;
+  return supabase
+    .channel(`inbox:${crypto.randomUUID()}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, onChange)
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        if (subscribedOnce) onReconnect?.();
+        subscribedOnce = true;
+      }
+    });
+}
 /** Ride requests the driver has confirmed — across every paired driver. */
 export async function getConfirmedRides(): Promise<ChatMessage[]> {
   const { data, error } = await supabase

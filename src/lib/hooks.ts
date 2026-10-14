@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ChatMessage, DriverPassengerLink, DriverPublicProfile } from "@/integrations/supabase/types";
-import { getConfirmedRides, getDriverPublicProfile, getLink, getLinks, getMessages, subscribeToChat } from "./repository";
+import { getConfirmedRides, getDriverPublicProfile, getLink, getLinks, getMessages, getUnreadByLink, subscribeToChat, subscribeToInbox } from "./repository";
 
 function useRefetchOnFocus(refetch: () => void) {
   useEffect(() => {
@@ -130,4 +130,38 @@ export function useConfirmedRides() {
   useRefetchOnFocus(refetch);
 
   return { rides, loading, refetch };
+}
+
+/**
+ * Mensagens não lidas por conversa (linkId -> quantidade), pra lista de motoristas mostrar
+ * "Mensagem não lida". Atualiza na hora pelo tempo real, ao voltar pro app e, por garantia, a cada 15 s.
+ */
+export function useUnreadByLink() {
+  const [unread, setUnread] = useState<Record<string, number>>({});
+
+  const refetch = useCallback(() => {
+    getUnreadByLink()
+      .then(setUnread)
+      .catch((e) => console.error("[drivon] getUnreadByLink failed", e));
+  }, []);
+
+  useEffect(refetch, [refetch]);
+
+  useEffect(() => {
+    const channel = subscribeToInbox(refetch, refetch);
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [refetch]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") refetch();
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [refetch]);
+
+  useRefetchOnFocus(refetch);
+
+  return unread;
 }
