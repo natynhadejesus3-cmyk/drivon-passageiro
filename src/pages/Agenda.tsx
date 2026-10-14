@@ -2,6 +2,7 @@ import { Bell, CalendarClock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
+import { CancelRideControl } from "../components/CancelRideControl";
 import { useConfirmedRides, useLinks } from "@/lib/hooks";
 import { getCachedDriverName } from "@/lib/repository";
 import type { ChatMessage } from "@/integrations/supabase/types";
@@ -63,6 +64,7 @@ function RouteLine({ filled, children }: { filled?: boolean; children: React.Rea
 
 /** Cartão de uma corrida confirmada na Agenda (separado da lista pra ser testado sozinho). */
 export function AgendaRideCard({
+  messageId,
   driverName,
   linkId,
   body,
@@ -71,7 +73,10 @@ export function AgendaRideCard({
   at,
   now,
   isPast,
+  cancelledBy,
+  onChanged,
 }: {
+  messageId: string;
   driverName: string;
   linkId: string;
   body: string;
@@ -80,43 +85,70 @@ export function AgendaRideCard({
   at: number;
   now: number;
   isPast: boolean;
+  /** Quem cancelou (corrida cancelada), ou null/undefined se segue de pé. */
+  cancelledBy?: "driver" | "passenger" | null;
+  /** Depois de cancelar: a lista busca de novo. */
+  onChanged: () => void;
 }) {
   const ms = at - now;
   const t = tone(ms);
+  const cancelled = cancelledBy !== undefined && cancelledBy !== null;
   return (
-    <Link to={`/chat/${linkId}`} className={`card-elevated block p-4 ${isPast ? "opacity-60" : ""}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="break-words font-semibold leading-tight">{driverName}</p>
-          <p className="mt-1 text-label capitalize">{dayLabel(at, now)}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-[22px] font-black leading-none tracking-tight">{timeLabel(at)}</p>
-          {isPast ? (
-            <p className="mt-1.5 text-[10px] font-bold text-muted-foreground">ANTERIOR</p>
-          ) : (
-            <p className={`mt-1.5 flex items-center justify-end gap-1 whitespace-nowrap text-[11px] font-bold ${t.text}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
-              {countdown(ms)}
+    <div className={`card-elevated p-4 ${isPast || cancelled ? "opacity-60" : ""}`}>
+      {/* O cartão abre a conversa; o botão de cancelar fica FORA do link pra não abrir a conversa ao tocar nele. */}
+      <Link to={`/chat/${linkId}`} className="block">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="break-words font-semibold leading-tight">{driverName}</p>
+            <p className="mt-1 text-label capitalize">{dayLabel(at, now)}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className={`text-[22px] font-black leading-none tracking-tight ${cancelled ? "line-through" : ""}`}>
+              {timeLabel(at)}
             </p>
-          )}
+            {cancelled ? null : isPast ? (
+              <p className="mt-1.5 text-[10px] font-bold text-muted-foreground">ANTERIOR</p>
+            ) : (
+              <p className={`mt-1.5 flex items-center justify-end gap-1 whitespace-nowrap text-[11px] font-bold ${t.text}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
+                {countdown(ms)}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
 
-      {originLabel || destinationLabel ? (
-        <div className="mt-3 space-y-2 border-t border-[color:var(--color-hairline)] pt-3">
-          {originLabel && <RouteLine filled>{originLabel}</RouteLine>}
-          {destinationLabel && <RouteLine>{destinationLabel}</RouteLine>}
-        </div>
-      ) : (
-        <p className="mt-3 break-words border-t border-[color:var(--color-hairline)] pt-3 text-label">{body}</p>
+        {originLabel || destinationLabel ? (
+          <div className="mt-3 space-y-2 border-t border-[color:var(--color-hairline)] pt-3">
+            {originLabel && <RouteLine filled>{originLabel}</RouteLine>}
+            {destinationLabel && <RouteLine>{destinationLabel}</RouteLine>}
+          </div>
+        ) : (
+          <p className="mt-3 break-words border-t border-[color:var(--color-hairline)] pt-3 text-label">{body}</p>
+        )}
+
+        {cancelled ? (
+          <p className="mt-3 flex items-center gap-1 text-[10px] font-bold uppercase text-destructive">
+            <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+            {cancelledBy === "driver" ? "Cancelada pelo motorista" : "Cancelada por você"}
+          </p>
+        ) : (
+          <p className="mt-3 flex items-center gap-1 text-[10px] font-bold text-success">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            CONFIRMADA
+          </p>
+        )}
+      </Link>
+
+      {/* Só dá pra cancelar corrida que ainda não passou do horário (a que já saiu se resolve com o motorista). */}
+      {!cancelled && !isPast && (
+        <CancelRideControl
+          messageId={messageId}
+          kind="ride"
+          driverName={driverName.split(" ")[0] ?? ""}
+          onDone={onChanged}
+        />
       )}
-
-      <p className="mt-3 flex items-center gap-1 text-[10px] font-bold text-success">
-        <span className="h-1.5 w-1.5 rounded-full bg-success" />
-        CONFIRMADA
-      </p>
-    </Link>
+    </div>
   );
 }
 
@@ -138,14 +170,18 @@ export function Agenda() {
   }, [refetch]);
 
   const items: Item[] = rides.map((ride) => ({ ride, at: new Date(ride.requested_at ?? ride.created_at).getTime() }));
-  const upcoming = items.filter((i) => i.at >= now - PAST_AFTER_MS).sort((a, b) => a.at - b.at);
-  const past = items.filter((i) => i.at < now - PAST_AFTER_MS).sort((a, b) => b.at - a.at);
+  // Cancelada (por qualquer um dos dois) sai de "próximas" e "anteriores" e vai pra sua própria seção.
+  const live = items.filter((i) => !i.ride.cancelled_at);
+  const cancelled = items.filter((i) => i.ride.cancelled_at).sort((a, b) => b.at - a.at).slice(0, 20);
+  const upcoming = live.filter((i) => i.at >= now - PAST_AFTER_MS).sort((a, b) => a.at - b.at);
+  const past = live.filter((i) => i.at < now - PAST_AFTER_MS).sort((a, b) => b.at - a.at);
 
   function card({ ride, at }: Item, isPast: boolean) {
     const driverId = driverIdByLink.get(ride.link_id);
     return (
       <AgendaRideCard
         key={ride.id}
+        messageId={ride.id}
         driverName={driverId ? getCachedDriverName(driverId) : "Motorista"}
         linkId={ride.link_id}
         body={ride.body}
@@ -154,6 +190,8 @@ export function Agenda() {
         at={at}
         now={now}
         isPast={isPast}
+        cancelledBy={ride.cancelled_at ? (ride.cancelled_by ?? "driver") : null}
+        onChanged={refetch}
       />
     );
   }
@@ -184,6 +222,13 @@ export function Agenda() {
           <>
             <p className="section-label mb-1 mt-6">Anteriores</p>
             {past.map((i) => card(i, true))}
+          </>
+        )}
+
+        {cancelled.length > 0 && (
+          <>
+            <p className="section-label mb-1 mt-6">Canceladas</p>
+            {cancelled.map((i) => card(i, true))}
           </>
         )}
       </div>

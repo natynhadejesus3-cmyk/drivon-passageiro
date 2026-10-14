@@ -34,6 +34,9 @@ export type ChatMessage = {
   destination_lat: number | null;
   destination_lng: number | null;
   requested_at: string | null;
+  /** Só o servidor grava: quando o pedido/corrida foi cancelado e por quem (passageiro ou motorista). */
+  cancelled_at?: string | null;
+  cancelled_by?: SenderRole | null;
   read_at: string | null;
   created_at: string;
 };

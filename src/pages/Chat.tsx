@@ -2,6 +2,8 @@ import { ArrowLeft, Calendar, Check, Clock, Crosshair, Navigation, Send, X } fro
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
+import { CancelRideControl } from "../components/CancelRideControl";
+import type { ChatMessage } from "@/integrations/supabase/types";
 import { DriverAvatar } from "../components/DriverAvatar";
 import { useAuth } from "@/lib/auth-context";
 import { formatLastSeen, seenAgo } from "@/lib/format";
@@ -21,6 +23,13 @@ import { TypingBubble } from "../components/TypingBubble";
 
 function formatMoney(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+// Corrida aceita que já passou 30 min do horário já saiu (resolve-se com o motorista); pedido sem resposta sempre pode ser cancelado.
+const PAST_AFTER_MS = 30 * 60_000;
+function canStillCancel(m: ChatMessage) {
+  if (!m.ride_confirmed) return true;
+  return new Date(m.requested_at ?? m.created_at).getTime() >= Date.now() - PAST_AFTER_MS;
 }
 
 function formatTime(iso: string) {
@@ -354,9 +363,11 @@ export function Chat() {
               <div
                 className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-[15px] ${
                   isRideEvent
-                    ? m.ride_confirmed
-                      ? "bg-success/15 text-success"
-                      : "bg-primary-soft text-primary"
+                    ? m.cancelled_at
+                      ? "bg-destructive/10 text-destructive"
+                      : m.ride_confirmed
+                        ? "bg-success/15 text-success"
+                        : "bg-primary-soft text-primary"
                     : mine
                       ? "bg-primary text-primary-foreground"
                       : "card-elevated"
@@ -365,7 +376,13 @@ export function Chat() {
                 <p>{m.body}</p>
                 {isRideEvent && (
                   <p className="mt-1 flex items-center gap-1 text-[10px] font-bold uppercase opacity-90">
-                    {m.ride_confirmed ? (
+                    {m.cancelled_at ? (
+                      <>
+                        <X size={12} strokeWidth={3} />
+                        {m.ride_confirmed ? "Corrida cancelada" : "Pedido cancelado"}
+                        {m.cancelled_by === "driver" ? " pelo motorista" : " por você"}
+                      </>
+                    ) : m.ride_confirmed ? (
                       <>
                         <Check size={12} strokeWidth={3} /> Corrida aceita
                       </>
@@ -375,6 +392,15 @@ export function Chat() {
                   </p>
                 )}
                 <p className="mt-1 text-[10px] opacity-70">{formatTime(m.created_at)}</p>
+                {/* Pedido ainda sem resposta, ou corrida aceita que ainda não passou do horário: dá pra cancelar. */}
+                {isRideEvent && mine && !m.cancelled_at && canStillCancel(m) && (
+                  <CancelRideControl
+                    messageId={m.id}
+                    kind={m.ride_confirmed ? "ride" : "request"}
+                    driverName={driverName.split(" ")[0] ?? ""}
+                    onDone={refetch}
+                  />
+                )}
               </div>
             </div>
           );
