@@ -13,6 +13,7 @@ import {
   type LocationContext,
 } from "@/lib/services/location-service";
 import type { AddressSuggestion } from "@/lib/services/pelias-search-service";
+import { rideFare } from "@/lib/fare";
 import { routeDistance } from "@/lib/routing";
 import { useIncomingMessageSound } from "@/lib/use-incoming-message-sound";
 import { useTypingIndicator } from "@/lib/use-typing-indicator";
@@ -102,7 +103,7 @@ export function Chat() {
   const [locatingOrigin, setLocatingOrigin] = useState(false);
   const [askingRide, setAskingRide] = useState(false);
   const [sending, setSending] = useState(false);
-  const [estimate, setEstimate] = useState<{ distanceKm: number; price: number } | null>(null);
+  const [estimate, setEstimate] = useState<{ distanceKm: number; perKm: number; price: number } | null>(null);
   const [estimating, setEstimating] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   // Só pra forçar o "Visto há X minutos" a se atualizar sozinho com o tempo.
@@ -220,6 +221,14 @@ export function Chat() {
       setEstimate(null);
       return;
     }
+    // Sem o preço por km REAL do motorista (perfil ainda carregando ou fora do ar) não mostra valor
+    // nenhum: antes caía num 2,80 "chutado" e o passageiro via um valor diferente do que o motorista cobra.
+    const perKm = Number(profile?.per_km);
+    if (profile?.per_km == null || !Number.isFinite(perKm)) {
+      setEstimate(null);
+      setEstimating(false);
+      return;
+    }
     let cancelled = false;
     setEstimating(true);
     routeDistance(
@@ -228,8 +237,8 @@ export function Chat() {
     )
       .then((r) => {
         if (cancelled) return;
-        const perKm = profile?.per_km ?? 2.8;
-        setEstimate({ distanceKm: r.distance_km, price: r.distance_km * perKm });
+        // Mesma conta do app do motorista (lib/fare.ts), centavo por centavo.
+        setEstimate({ distanceKm: r.distance_km, perKm, price: rideFare(r.distance_km, perKm) });
       })
       .catch(() => {
         if (!cancelled) setEstimate(null);
@@ -497,7 +506,7 @@ export function Chat() {
                         {formatMoney(estimate.price)}
                       </p>
                       <p className="mt-1.5 text-[11px] text-primary/70">
-                        {estimate.distanceKm.toFixed(1).replace(".", ",")} km · tarifa de {driverName.split(" ")[0]}
+                        {estimate.distanceKm.toFixed(1).replace(".", ",")} km × {formatMoney(estimate.perKm)}/km · tarifa de {driverName.split(" ")[0]}
                       </p>
                     </>
                   )
