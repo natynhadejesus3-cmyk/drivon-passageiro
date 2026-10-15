@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Só na versão "sideload" (instalada por arquivo): deixa o app abrir o instalador pro APK novo (ver
+         src/sideload/java/.../ApkUpdaterPlugin.java). A versão da Play Store NÃO tem esta permissão: a Play proíbe. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+</manifest>

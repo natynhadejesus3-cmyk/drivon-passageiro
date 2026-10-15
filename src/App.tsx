@@ -4,6 +4,7 @@ import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { InviteAutoPair } from "./components/InviteAutoPair";
 import { RideAcceptedCelebration } from "./components/RideAcceptedCelebration";
+import { UpdateGate } from "./components/UpdateGate";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getBootInvite } from "@/lib/invite";
 import { listenForInviteLinks } from "@/lib/native-invite";
@@ -108,10 +109,15 @@ function AppRoutes() {
   );
 }
 
+// A lista de versões dos APKs vem do servidor do app do motorista (rota /api/public/app-update).
+const UPDATE_MANIFEST_URL = "https://natynhadejesus3-cmyk-comfort-code-cave.canalgringo028.workers.dev/api/public/app-update";
+
 function App() {
   return (
     <AuthProvider>
       <AppRoutes />
+      {/* Aviso de versão nova do APK (só dentro do app instalado; ver lib/app-update). Fora do AppShell de propósito. */}
+      <UpdateGate app="passenger" manifestUrl={UPDATE_MANIFEST_URL} appName="Drivon Passageiro" />
     </AuthProvider>
   );
 }

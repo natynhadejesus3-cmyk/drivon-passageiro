@@ -7,14 +7,25 @@ android {
         applicationId "com.drivon.passageiro"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.2"
+        versionCode 4
+        versionName "1.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
+    }
+    // DUAS versões do mesmo app:
+    //  - sideload: o APK que se instala por arquivo (o que mandamos pros usuários). Tem o atualizador interno
+    //    (permissão REQUEST_INSTALL_PACKAGES + src/sideload/.../ApkUpdaterPlugin.java): o app avisa, baixa e abre o
+    //    instalador sozinho.
+    //  - play: o pacote (AAB) da Play Store. SEM atualizador: a Play proíbe que o app se atualize por fora dela.
+    // Gerar: .\gradlew.bat assembleSideloadRelease bundlePlayRelease
+    flavorDimensions "dist"
+    productFlavors {
+        sideload { dimension "dist" }
+        play { dimension "dist" }
     }
     // Assinatura de RELEASE (a que vai pra Play Store). A chave e as senhas ficam FORA do projeto,
     // em ~/.gradle/gradle.properties (DRIVON_PASSAGEIRO_STORE_FILE etc.), e nunca vão pro GitHub.
