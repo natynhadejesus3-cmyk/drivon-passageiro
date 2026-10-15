@@ -10,7 +10,13 @@ const CHANNEL_ID = "drivon_passageiro_default";
 // `mensagem_v2`, o áudio do vídeo do dono) e o v1 é apagado. Mesma regra de message-channel.ts do app do motorista.
 const MESSAGE_CHANNEL_V1 = { channelId: "drivon_passageiro_messages_v1", sound: "mensagem_nova" };
 const MESSAGE_CHANNEL_V2 = { channelId: "drivon_passageiro_messages_v2", sound: "mensagem_v2" };
+// Build 5 (APK 1.4): som `aviso_novo` nas mensagens (canal v3) e nos lembretes de 40/20/10/5 min (canal próprio).
+// O aviso "na hora" fica no canal de sempre. Os canais v1/v2 são apagados.
+const MESSAGE_CHANNEL_V3 = { channelId: "drivon_passageiro_messages_v3", sound: "aviso_novo" };
+const REMINDER_CHANNEL = { channelId: "drivon_passageiro_reminders_v1", sound: "aviso_novo" };
+const NOTICE_SOUND_V3_BUILD = 5;
 function messageChannelForBuild(build: number): { channelId: string; sound: string } | null {
+  if (build >= NOTICE_SOUND_V3_BUILD) return MESSAGE_CHANNEL_V3;
   if (build >= 3) return MESSAGE_CHANNEL_V2;
   if (build >= 2) return MESSAGE_CHANNEL_V1;
   return null;
@@ -75,10 +81,21 @@ export async function initNativePush(userId: string, navigate: NavigateFn): Prom
         sound: messageChannel.sound,
         vibration: true,
       }).catch((e) => setStatus(`createChannel (mensagens) falhou: ${e}`));
-      // O som mudou (canal v2): tira o canal antigo da lista do Android pra não ficar "Mensagens" em dobro.
-      if (messageChannel.channelId !== MESSAGE_CHANNEL_V1.channelId) {
-        await PushNotifications.deleteChannel({ id: MESSAGE_CHANNEL_V1.channelId }).catch(() => undefined);
+      // O som mudou (canal novo): tira os canais antigos da lista do Android pra não ficar "Mensagens" em dobro.
+      for (const old of [MESSAGE_CHANNEL_V1.channelId, MESSAGE_CHANNEL_V2.channelId]) {
+        if (messageChannel.channelId !== old) await PushNotifications.deleteChannel({ id: old }).catch(() => undefined);
       }
+    }
+    if (appBuild >= NOTICE_SOUND_V3_BUILD) {
+      await PushNotifications.createChannel({
+        id: REMINDER_CHANNEL.channelId,
+        name: "Lembretes (40 a 5 min antes)",
+        description: "Avisos antes da corrida: 40, 20, 10 e 5 minutos",
+        importance: 5,
+        visibility: 1,
+        sound: REMINDER_CHANNEL.sound,
+        vibration: true,
+      }).catch((e) => setStatus(`createChannel (lembretes) falhou: ${e}`));
     }
 
     await PushNotifications.addListener("registration", (t) => {
