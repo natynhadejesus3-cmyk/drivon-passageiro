@@ -1,8 +1,9 @@
-import { ArrowLeft, Calendar, Check, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
+import { ArrowLeft, Check, Crosshair, Navigation, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { CancelRideControl } from "../components/CancelRideControl";
+import { RideWhenPicker } from "../components/RideWhenPicker";
 import { errorMessage } from "@/lib/error-messages";
 import type { ChatMessage } from "@/integrations/supabase/types";
 import { DriverAvatar } from "../components/DriverAvatar";
@@ -492,33 +493,7 @@ export function Chat() {
               </p>
             )}
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="section-label mb-2 flex items-center gap-1.5">
-                  <Calendar size={12} />
-                  Data
-                </span>
-                <input
-                  type="date"
-                  value={rideDate}
-                  min={todayInputValue()}
-                  onChange={(e) => setRideDate(e.target.value)}
-                  className="w-full rounded-xl border border-[color:var(--color-hairline)] bg-background px-3.5 py-3 text-[15px] outline-none focus:border-primary"
-                />
-              </label>
-              <label className="block">
-                <span className="section-label mb-2 flex items-center gap-1.5">
-                  <Clock size={12} />
-                  Horário
-                </span>
-                <input
-                  type="time"
-                  value={rideTime}
-                  onChange={(e) => setRideTime(e.target.value)}
-                  className="w-full rounded-xl border border-[color:var(--color-hairline)] bg-background px-3.5 py-3 text-[15px] outline-none focus:border-primary"
-                />
-              </label>
-            </div>
+            <RideWhenPicker date={rideDate} time={rideTime} onDate={setRideDate} onTime={setRideTime} />
 
             {requestInPast && (
               <p className="mt-3 text-[11px] text-warning">
