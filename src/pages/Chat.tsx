@@ -45,6 +45,16 @@ function todayInputValue() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Pede ao navegador do celular pra abrir o calendário/relógio no toque. Em alguns Androids o toque no campo
+// sozinho não abria o seletor. Se já estiver aberto ou o aparelho não suportar, não faz nada.
+function openNativePicker(el: HTMLInputElement) {
+  try {
+    el.showPicker?.();
+  } catch {
+    /* já aberto, ou sem suporte: o toque normal continua valendo */
+  }
+}
+
 // Tolerância pro "agora": o horário padrão é o momento em que a pessoa abriu o
 // formulário, e até enviar já passaram alguns minutos.
 const PAST_TOLERANCE_MS = 5 * 60_000;
@@ -502,6 +512,7 @@ export function Chat() {
                   type="date"
                   value={rideDate}
                   min={todayInputValue()}
+                  onClick={(e) => openNativePicker(e.currentTarget)}
                   onChange={(e) => setRideDate(e.target.value)}
                   className="w-full rounded-xl border border-[color:var(--color-hairline)] bg-background px-3.5 py-3 text-[15px] outline-none focus:border-primary"
                 />
@@ -514,6 +525,7 @@ export function Chat() {
                 <input
                   type="time"
                   value={rideTime}
+                  onClick={(e) => openNativePicker(e.currentTarget)}
                   onChange={(e) => setRideTime(e.target.value)}
                   className="w-full rounded-xl border border-[color:var(--color-hairline)] bg-background px-3.5 py-3 text-[15px] outline-none focus:border-primary"
                 />
