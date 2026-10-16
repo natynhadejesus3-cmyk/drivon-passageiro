@@ -157,6 +157,10 @@ async function persistToken(userId: string, token: string) {
     await saveFcmToken(userId, `${getDeviceId()}:${userId}`, token, ua);
     setStatus(`token salvo com sucesso (${token.slice(0, 12)}...)`);
   } catch (e) {
-    setStatus(`falha ao salvar token: ${e}`);
+    // O erro do banco é um objeto (não um Error): "${e}" mostrava só [object Object].
+    const err = e as { message?: string; code?: string; details?: string; hint?: string };
+    setStatus(
+      `falha ao salvar token: ${[err?.code, err?.message, err?.details, err?.hint].filter(Boolean).join(" | ") || String(e)}`,
+    );
   }
 }
