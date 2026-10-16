@@ -26,6 +26,8 @@ let appBuild = 0;
 const NATIVE_PUSH_ENABLED = true;
 
 let started = false;
+let currentUserId = "";
+let lastToken = "";
 
 // Diagnóstico visível na tela (Perfil) — sem isso, um erro nessa cadeia
 // (registro, permissão, salvar token) não deixa rastro nenhum pra quem não
@@ -46,8 +48,22 @@ export async function initNativePush(userId: string, navigate: NavigateFn): Prom
     setStatus("não é o app nativo (navegador comum)");
     return;
   }
-  if (started) return;
+  if (started) {
+    // Trocou de conta sem fechar o app: o aparelho continuava cadastrado na conta ANTERIOR, e os avisos da
+    // conta nova (corrida aceita, lembretes) não chegavam. Cadastra o mesmo aparelho na conta nova.
+    if (userId !== currentUserId) {
+      currentUserId = userId;
+      if (lastToken) {
+        void persistToken(userId, lastToken);
+      } else {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        await PushNotifications.register().catch(() => undefined);
+      }
+    }
+    return;
+  }
   started = true;
+  currentUserId = userId;
   if (!NATIVE_PUSH_ENABLED) {
     setStatus("desligado (NATIVE_PUSH_ENABLED = false)");
     return;
@@ -100,7 +116,8 @@ export async function initNativePush(userId: string, navigate: NavigateFn): Prom
 
     await PushNotifications.addListener("registration", (t) => {
       setStatus(`token recebido, salvando...`);
-      void persistToken(userId, t.value);
+      lastToken = t.value;
+      void persistToken(currentUserId, t.value);
     });
     await PushNotifications.addListener("registrationError", (e) => {
       setStatus(`registrationError: ${JSON.stringify(e)}`);
@@ -134,7 +151,10 @@ async function persistToken(userId: string, token: string) {
   try {
     // a marca drivon-build/N fica no COMEÇO (o texto é cortado em 400 caracteres)
     const ua = `android-capacitor${appBuild ? ` drivon-build/${appBuild}` : ""} ${navigator.userAgent}`.slice(0, 400);
-    await saveFcmToken(userId, getDeviceId(), token, ua);
+    // O identificador leva a conta junto: o banco só deixa cada conta mexer nos próprios cadastros, então
+    // quando o mesmo aparelho já tinha sido usado por OUTRA conta, salvar com o identificador puro era
+    // barrado e a conta nova ficava sem receber nenhum aviso (corrida aceita, lembretes).
+    await saveFcmToken(userId, `${getDeviceId()}:${userId}`, token, ua);
     setStatus(`token salvo com sucesso (${token.slice(0, 12)}...)`);
   } catch (e) {
     setStatus(`falha ao salvar token: ${e}`);
