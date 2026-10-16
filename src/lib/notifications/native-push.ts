@@ -146,6 +146,16 @@ export async function initNativePush(userId: string, navigate: NavigateFn): Prom
   }
 }
 
+/** A coluna device_id do banco é do tipo uuid: gera um uuid fixo para o par (aparelho, conta). */
+async function deviceIdForAccount(deviceId: string, userId: string): Promise<string> {
+  const bytes = new TextEncoder().encode(`${deviceId}|${userId}`);
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)).slice(0, 16);
+  hash[6] = (hash[6]! & 0x0f) | 0x50; // versão 5
+  hash[8] = (hash[8]! & 0x3f) | 0x80; // variante RFC 4122
+  const h = Array.from(hash, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 async function persistToken(userId: string, token: string) {
   if (!token) return;
   try {
@@ -154,7 +164,7 @@ async function persistToken(userId: string, token: string) {
     // O identificador leva a conta junto: o banco só deixa cada conta mexer nos próprios cadastros, então
     // quando o mesmo aparelho já tinha sido usado por OUTRA conta, salvar com o identificador puro era
     // barrado e a conta nova ficava sem receber nenhum aviso (corrida aceita, lembretes).
-    await saveFcmToken(userId, `${getDeviceId()}:${userId}`, token, ua);
+    await saveFcmToken(userId, await deviceIdForAccount(getDeviceId(), userId), token, ua);
     setStatus(`token salvo com sucesso (${token.slice(0, 12)}...)`);
   } catch (e) {
     // O erro do banco é um objeto (não um Error): "${e}" mostrava só [object Object].
