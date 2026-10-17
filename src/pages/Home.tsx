@@ -1,3 +1,4 @@
+import { VehicleBadges } from "@/components/VehicleBadges";
 import { QrCode, Unlink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ScreenHeader } from "../components/AppShell";
@@ -103,6 +104,9 @@ function DriverRow({
         <p className="truncate text-label">
           {online ? <span className="text-success">Online agora</span> : formatLastSeen(profile?.last_seen_at)}
         </p>
+        <div className="mt-1">
+          <VehicleBadges vehicles={profile?.vehicle_types} />
+        </div>
       </div>
       <button onClick={onUnlink} title="Desconectar" className="shrink-0 rounded-full p-2 text-muted-foreground">
         <Unlink size={16} />

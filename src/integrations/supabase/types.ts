@@ -56,6 +56,8 @@ export type DriverPublicProfile = {
   per_km: number;
   is_online: boolean;
   last_seen_at: string | null;
+  /** "car" e/ou "moto". Ausente enquanto o banco não tem a coluna (migration 20261016140000_vehicle_types): vale como carro. */
+  vehicle_types?: string[] | null;
 };
 
 /** Linha própria do passageiro — só ele mesmo lê/escreve (RLS auth.uid() = id). */

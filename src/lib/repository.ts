@@ -258,12 +258,22 @@ export async function getRideRequests(): Promise<ChatMessage[]> {
 
 /** Nome/foto/status real do motorista — só devolve algo se o pareamento existir de verdade (checado dentro da view). */
 export async function getDriverPublicProfile(driverId: string): Promise<DriverPublicProfile | null> {
-  const { data, error } = await supabase
+  const full = await supabase
     .from("driver_public_profile")
-    .select("full_name, avatar_url, per_km, is_online, last_seen_at, driver_id")
+    .select("full_name, avatar_url, per_km, is_online, last_seen_at, driver_id, vehicle_types")
     .eq("driver_id", driverId)
     .maybeSingle();
-  if (error) throw error;
+  let data = full.data as DriverPublicProfile | null;
+  if (full.error) {
+    // O banco ainda não tem a coluna do tipo de veículo: busca sem ela (o motorista aparece como carro).
+    const basic = await supabase
+      .from("driver_public_profile")
+      .select("full_name, avatar_url, per_km, is_online, last_seen_at, driver_id")
+      .eq("driver_id", driverId)
+      .maybeSingle();
+    if (basic.error) throw basic.error;
+    data = basic.data as DriverPublicProfile | null;
+  }
   if (data?.full_name) cacheDriverName(driverId, data.full_name);
   return data;
 }

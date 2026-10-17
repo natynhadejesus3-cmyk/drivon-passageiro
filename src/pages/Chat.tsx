@@ -6,6 +6,7 @@ import { CancelRideControl } from "../components/CancelRideControl";
 import { errorMessage } from "@/lib/error-messages";
 import type { ChatMessage } from "@/integrations/supabase/types";
 import { DriverAvatar } from "../components/DriverAvatar";
+import { VehicleBadges } from "../components/VehicleBadges";
 import { useAuth } from "@/lib/auth-context";
 import { formatLastSeen, seenAgo } from "@/lib/format";
 import { useDriverProfile, useLink, useMessages } from "@/lib/hooks";
@@ -16,7 +17,7 @@ import {
   type LocationContext,
 } from "@/lib/services/location-service";
 import type { AddressSuggestion } from "@/lib/services/pelias-search-service";
-import { rideFare } from "@/lib/fare";
+import { NIGHT_SURCHARGE_PCT, rideFareDetail } from "@/lib/fare";
 import { routeDistance } from "@/lib/routing";
 import { useIncomingMessageSound } from "@/lib/use-incoming-message-sound";
 import { useTypingIndicator } from "@/lib/use-typing-indicator";
@@ -260,7 +261,7 @@ export function Chat() {
       .then((r) => {
         if (cancelled) return;
         // Mesma conta do app do motorista (lib/fare.ts), centavo por centavo.
-        setEstimate({ distanceKm: r.distance_km, perKm, price: rideFare(r.distance_km, perKm) });
+        setEstimate({ distanceKm: r.distance_km, perKm, price: rideFareDetail(r.distance_km, perKm).base });
       })
       .catch(() => {
         if (!cancelled) setEstimate(null);
@@ -297,6 +298,12 @@ export function Chat() {
   // Hoje já pode escolher; só horário que já passou não (não dá pra pedir
   // uma corrida pro passado).
   const requestInPast = isPastRequest(rideDate, rideTime);
+  // Tarifa noturna (+30%, das 22h às 5h): vale pela hora que o passageiro escolheu pra corrida, a mesma que o
+  // motorista usa ao calcular (ver lib/fare.ts).
+  const rideWhen = new Date(`${rideDate}T${rideTime}`);
+  const fare = estimate
+    ? rideFareDetail(estimate.distanceKm, estimate.perKm, Number.isFinite(rideWhen.getTime()) ? rideWhen : null)
+    : null;
 
   async function submitRideRequest() {
     if (!originReady || !destinationReady || !selectedOrigin || !selectedAddress || !user || requestInPast) return;
@@ -358,7 +365,10 @@ export function Chat() {
         </button>
         <DriverAvatar name={driverName} avatarUrl={profile?.avatar_url} online={driverOnline} size={40} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-bold leading-tight">{driverName}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate font-bold leading-tight">{driverName}</p>
+            <VehicleBadges vehicles={profile?.vehicle_types} />
+          </div>
           <p className="truncate text-label">
             {otherTyping ? (
               <span className="text-success">digitando…</span>
@@ -553,11 +563,16 @@ export function Chat() {
                   estimate && (
                     <>
                       <p className="mt-0.5 text-[32px] font-black leading-none tracking-tight text-primary">
-                        {formatMoney(estimate.price)}
+                        {formatMoney(fare?.total ?? estimate.price)}
                       </p>
                       <p className="mt-1.5 text-[11px] text-primary/70">
                         {estimate.distanceKm.toFixed(1).replace(".", ",")} km × {formatMoney(estimate.perKm)}/km · tarifa de {driverName.split(" ")[0]}
                       </p>
+                      {fare?.isNight && (
+                        <p className="mt-1.5 text-[11px] font-semibold text-primary">
+                          Inclui tarifa noturna de +{NIGHT_SURCHARGE_PCT}% ({formatMoney(fare.surcharge)}): corridas das 22h às 5h
+                        </p>
+                      )}
                     </>
                   )
                 )}
