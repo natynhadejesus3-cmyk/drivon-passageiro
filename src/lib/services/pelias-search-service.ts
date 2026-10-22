@@ -2,6 +2,7 @@
 // Todos os provedores retornam o mesmo formato AddressSuggestion.
 import { AddressSearchService, type AddressSuggestion } from "./address-search-service";
 import { searchOverpass, normalizeText, isCategoryQuery } from "./overpass-poi-service";
+import { attachNumber, planQuery } from "./address-query";
 
 export type { AddressSuggestion };
 
@@ -179,9 +180,10 @@ function looksLikeSpecificAddress(q: string): boolean {
   return /\d/.test(q) || STREET_HINT_RE.test(q);
 }
 
-function score(it: AddressSuggestion, q: string, bias?: GeoBias | null) {
+function score(it: AddressSuggestion, q: string, bias?: GeoBias | null, specific = false) {
   const nq = norm(q);
-  const name = norm(it.street);
+  // O número da casa no fim do nome não conta na comparação com o que foi digitado.
+  const name = norm(it.street.replace(/,\s*\d+[A-Za-z]?\s*$/, ""));
   let s = 0;
   if (name === nq) s += 100;
   else if (name.startsWith(nq)) s += 70;
@@ -193,7 +195,7 @@ function score(it: AddressSuggestion, q: string, bias?: GeoBias | null) {
   }
   if (it.type === "poi") s += 20;
   if (it.source === "overpass") s += 10;
-  if (looksLikeSpecificAddress(q) && isCityOnly(it)) s -= 80;
+  if ((specific || looksLikeSpecificAddress(q)) && isCityOnly(it)) s -= 80;
   if (bias) {
     const d = distMeters(bias, it);
     it.distanceMeters = Math.round(d);
@@ -211,8 +213,21 @@ function score(it: AddressSuggestion, q: string, bias?: GeoBias | null) {
   return s;
 }
 
-function rank(items: AddressSuggestion[], q: string, bias?: GeoBias | null) {
-  return [...items].sort((a, b) => score(b, q, bias) - score(a, q, bias));
+function rank(items: AddressSuggestion[], q: string, bias?: GeoBias | null, specific = false) {
+  return [...items].sort((a, b) => score(b, q, bias, specific) - score(a, q, bias, specific));
+}
+
+/**
+ * A pessoa digitou o número da casa e o mapa só conhece a rua (o OpenStreetMap quase não tem
+ * numeração no Brasil): mostra o número digitado no resultado de rua cujo nome bate exatamente.
+ * O ponto continua sendo o da rua. Estabelecimentos (POI) e resultados que já têm número ficam como estão.
+ */
+function withTypedNumber(items: AddressSuggestion[], plan: ReturnType<typeof planQuery>): AddressSuggestion[] {
+  if (!plan.number) return items;
+  const nq = norm(plan.scoreText);
+  return items.map((it) =>
+    it.type !== "poi" && it.source !== "overpass" && norm(it.street) === nq ? attachNumber(it, plan.number) : it,
+  );
 }
 
 function tag(
@@ -259,6 +274,8 @@ export const GeoSearchService = {
     if (q.length < 3) return [];
     const limit = opts.limit ?? 8;
     const bias = opts.bias ?? null;
+    // "Av. Rio Branco nº 245" → "Avenida Rio Branco 245" (+ só a rua, se o mapa não souber o número).
+    const plan = planQuery(q);
     const key = cacheKey(q, limit, bias);
     const cached = cacheGet(key);
     if (cached) {
@@ -279,7 +296,8 @@ export const GeoSearchService = {
     };
 
     const acc: AddressSuggestion[] = [];
-    const shape = (items: AddressSuggestion[]) => rank(dedupe(items), q, bias).slice(0, limit);
+    const shape = (items: AddressSuggestion[]) =>
+      rank(dedupe(withTypedNumber(items, plan)), plan.scoreText, bias, !!plan.number).slice(0, limit);
     const finish = (items: AddressSuggestion[]) => {
       const out = shape(items);
       cacheSet(key, out);
@@ -296,12 +314,12 @@ export const GeoSearchService = {
     // um atualiza a lista assim que responder (não espera o outro), para o
     // primeiro resultado aparecer o quanto antes na tela.
     const fast = { ...opts, signal: withTimeout(2500, userSignal) };
-    const nomP = soft(searchNominatim(q, fast, !!bias)).then((r) => {
+    const nomP = soft(searchNominatim(plan.primary, fast, !!bias)).then((r) => {
       acc.push(...tag(r, "nominatim", "address"));
       if (r.length) opts.onPartial?.(shape(acc));
       return r;
     });
-    const phoP = soft(AddressSearchService.search(q, { signal: fast.signal, limit, bias })).then((r) => {
+    const phoP = soft(AddressSearchService.search(plan.primary, { signal: fast.signal, limit, bias })).then((r) => {
       acc.push(...tag(r, "photon", "address"));
       if (r.length) opts.onPartial?.(shape(acc));
       return r;
@@ -310,6 +328,20 @@ export const GeoSearchService = {
     if (dedupe(acc).length >= limit) return finish(acc);
 
     if (aborted()) return shape(acc);
+
+    // 1b) Digitou o número da casa e o mapa quase não achou nada: busca só a RUA e mostra
+    // o número digitado no resultado (o ponto fica na rua). Só roda se a 1ª etapa foi fraca.
+    if (plan.streetOnly && dedupe(acc).length < 2) {
+      const sig = withTimeout(2500, userSignal);
+      const [nomS, phoS] = await Promise.all([
+        soft(searchNominatim(plan.streetOnly, { ...opts, signal: sig }, !!bias)),
+        soft(AddressSearchService.search(plan.streetOnly, { signal: sig, limit, bias })),
+      ]);
+      acc.push(...tag(nomS, "nominatim", "street"), ...tag(phoS, "photon", "street"));
+      if (nomS.length || phoS.length) opts.onPartial?.(shape(acc));
+      if (dedupe(acc).length >= limit) return finish(acc);
+      if (aborted()) return shape(acc);
+    }
 
     // 2) Overpass — categorias ("farmácia", "posto") direto no OSM.
     if (bias && isCategoryQuery(q)) {
@@ -327,7 +359,7 @@ export const GeoSearchService = {
     // Timeout curto: é um reforço, não pode segurar a lista por muito tempo.
     if (bias && !isCategoryQuery(q) && dedupe(acc).length < 2) {
       const byName = await soft(
-        searchOverpass(q, { signal: withTimeout(2500, userSignal), bias, radius: 25000, timeoutMs: 2500 }),
+        searchOverpass(plan.scoreText, { signal: withTimeout(2500, userSignal), bias, radius: 25000, timeoutMs: 2500 }),
       );
       if (byName.length) {
         acc.push(...byName);
@@ -340,7 +372,7 @@ export const GeoSearchService = {
     // outra cidade (ex.: "Avenida Paulista, São Paulo" estando em Jequié).
     if (bias) {
       const nomWide = await soft(
-        searchNominatim(q, { ...opts, bias: null, signal: withTimeout(3000, userSignal) }),
+        searchNominatim(plan.streetOnly ?? plan.primary, { ...opts, bias: null, signal: withTimeout(3000, userSignal) }),
       );
       acc.push(...tag(nomWide, "nominatim", "address"));
     }

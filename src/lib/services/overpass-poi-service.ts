@@ -1,5 +1,6 @@
 // Overpass — busca direta de POIs (node/way/relation) do OpenStreetMap pelo nome.
 import type { AddressSuggestion } from "./address-search-service";
+import { accentPattern } from "./address-query";
 
 const ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -49,10 +50,6 @@ const CATEGORIES: Record<string, string[]> = {
   academia: ["leisure=fitness_centre"],
 };
 
-function esc(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\"]/g, "\\$&");
-}
-
 /** true quando o texto é uma categoria genérica ("farmácia", "posto", "hospital"). */
 export function isCategoryQuery(q: string): boolean {
   return !!CATEGORIES[normalizeText(q)];
@@ -73,10 +70,11 @@ function buildQuery(q: string, lat: number, lng: number, radius: number): string
   } else {
     // Correspondência parcial e tolerante: "Hospital Prado Valadares"
     // encontra "Hospital Geral Prado Valadares".
+    // Sem depender de acento: "Antonio" também acha "Antônio" (o Overpass não ignora acento).
     const re = q
       .trim()
       .split(/\s+/)
-      .map((t) => esc(t))
+      .map((t) => accentPattern(t))
       .join(".*");
     for (const key of ["name", "official_name", "alt_name", "short_name", "brand", "operator"]) {
       parts.push(`nwr["${key}"~"${re}",i]${around};`);
