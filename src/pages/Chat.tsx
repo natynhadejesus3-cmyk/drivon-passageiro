@@ -1,4 +1,5 @@
-import { ArrowLeft, Calendar, Check, Clock, Crosshair, Flag, MapPin, Navigation, Send, Wallet, X } from "lucide-react";
+import { isArrivalMessage, parsePickupMessage, type ParsedPickupMessage } from "@/lib/driver-notices";
+import { ArrowLeft, BellRing, Calendar, Check, Clock, Crosshair, Flag, MapPin, Navigation, Send, Wallet, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
@@ -44,6 +45,36 @@ function shortAddress(label: string) {
 }
 
 // Pedido de corrida arrumado em linhas: embarque, destino, quando e valor (o valor vem na última linha do texto).
+// "Estou indo até o embarque" do motorista: deslocamento, corrida e total em quadradinhos.
+function PickupNoticeCard({ p }: { p: ParsedPickupMessage }) {
+  const box = "rounded-xl bg-black/25 px-3 py-2";
+  const tag = "mb-0.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide opacity-80";
+  return (
+    <div className="space-y-2">
+      <p className="flex items-center gap-1.5 font-semibold">
+        <Navigation size={15} /> Estou indo até o embarque!
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className={box}>
+          <p className={tag}>Deslocamento</p>
+          <p className="text-[13px] font-semibold text-foreground">{p.fee}</p>
+          <p className="text-[11px] opacity-80">{p.km} km</p>
+        </div>
+        <div className={box}>
+          <p className={tag}>Corrida</p>
+          <p className="text-[13px] font-semibold text-foreground">{p.ride}</p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between rounded-xl bg-black/25 px-3 py-2.5">
+        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide opacity-80">
+          <Wallet size={12} /> Total
+        </p>
+        <p className="text-lg font-extrabold">{p.total}</p>
+      </div>
+    </div>
+  );
+}
+
 const distanceCache = new Map<string, number>();
 
 function RideRequestCard({ m, perKm }: { m: ChatMessage; perKm?: number }) {
@@ -495,6 +526,16 @@ export function Chat() {
               >
                 {isRideEvent && m.origin_label && m.destination_label ? (
                   <RideRequestCard m={m} perKm={profile?.per_km} />
+                ) : parsePickupMessage(m.body) ? (
+                  <PickupNoticeCard p={parsePickupMessage(m.body)!} />
+                ) : isArrivalMessage(m.body) ? (
+                  <div className="flex items-center gap-2 rounded-xl bg-black/25 px-3 py-2">
+                    <BellRing size={18} />
+                    <div>
+                      <p className="font-bold">Cheguei ao local de embarque!</p>
+                      <p className="text-[12px] opacity-85">Estou te esperando.</p>
+                    </div>
+                  </div>
                 ) : (
                   <p className="whitespace-pre-line">{m.body}</p>
                 )}
