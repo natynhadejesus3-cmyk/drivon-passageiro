@@ -15,6 +15,7 @@ import { Agenda } from "./pages/Agenda";
 import { Auth } from "./pages/Auth";
 import { Chat } from "./pages/Chat";
 import { DeleteAccount } from "./pages/DeleteAccount";
+import { DriverProfile } from "./pages/DriverProfile";
 import { Home } from "./pages/Home";
 import { Invite } from "./pages/Invite";
 import { Pair } from "./pages/Pair";
@@ -25,7 +26,7 @@ function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
   const { session, loading, recovery, finishRecovery } = useAuth();
-  const hideNav = location.pathname.startsWith("/chat/") || location.pathname === "/pair" || location.pathname === "/excluir-conta";
+  const hideNav = location.pathname.startsWith("/chat/") || location.pathname.startsWith("/motorista/") ||location.pathname === "/pair" || location.pathname === "/excluir-conta";
 
   // Convite que chegou pelo link do QR (câmera do celular). No navegador mostra primeiro a
   // página de convite (baixar / abrir no app / continuar); dentro do app instalado vai
@@ -98,6 +99,7 @@ function AppRoutes() {
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/pair" element={<Pair />} />
           <Route path="/chat/:linkId" element={<Chat />} />
+          <Route path="/motorista/:linkId" element={<DriverProfile />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/excluir-conta" element={<DeleteAccount />} />
         </Routes>

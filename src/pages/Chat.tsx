@@ -444,22 +444,29 @@ export function Chat() {
         <button onClick={() => navigate(-1)} className="rounded-full p-1 text-muted-foreground">
           <ArrowLeft size={20} />
         </button>
-        <DriverAvatar name={driverName} avatarUrl={profile?.avatar_url} online={driverOnline} size={40} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate font-bold leading-tight">{driverName}</p>
-            <VehicleBadges vehicles={profile?.vehicle_types} />
+        {/* Tocar no motorista abre o perfil dele (com o QR para compartilhar). */}
+        <button
+          onClick={() => navigate(`/motorista/${linkId}`)}
+          aria-label="Ver perfil do motorista"
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
+          <DriverAvatar name={driverName} avatarUrl={profile?.avatar_url} online={driverOnline} size={40} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="truncate font-bold leading-tight">{driverName}</p>
+              <VehicleBadges vehicles={profile?.vehicle_types} />
+            </div>
+            <p className="truncate text-label">
+              {otherTyping ? (
+                <span className="text-success">digitando…</span>
+              ) : driverOnline ? (
+                <span className="text-success">Online agora</span>
+              ) : (
+                formatLastSeen(profile?.last_seen_at)
+              )}
+            </p>
           </div>
-          <p className="truncate text-label">
-            {otherTyping ? (
-              <span className="text-success">digitando…</span>
-            ) : driverOnline ? (
-              <span className="text-success">Online agora</span>
-            ) : (
-              formatLastSeen(profile?.last_seen_at)
-            )}
-          </p>
-        </div>
+        </button>
       </header>
 
       <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
