@@ -60,6 +60,22 @@ export async function getInviteDriverName(code: string): Promise<string | null> 
   }
 }
 
+/**
+ * Código de convite (o do QR) do motorista, para o passageiro mostrar o QR a um amigo. O banco só entrega para quem
+ * já está ligado a esse motorista. Qualquer falha (sem rede, função ainda não criada no banco, sem ligação) devolve
+ * null e a tela mostra um aviso, sem quebrar o resto.
+ */
+export async function getDriverShareCode(driverId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc("driver_share_code", { p_driver_id: driverId });
+    if (error) return null;
+    const code = (data as { pairing_code: string }[] | null)?.[0]?.pairing_code;
+    return parseInviteCode(code ?? null);
+  } catch {
+    return null;
+  }
+}
+
 export async function pairWithDriver(code: string, displayName?: string): Promise<PairWithDriverResult> {
   const { data, error } = await supabase.rpc("pair_with_driver", {
     p_code: code,

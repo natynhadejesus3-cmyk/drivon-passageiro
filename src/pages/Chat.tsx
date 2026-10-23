@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, Check, Clock, Crosshair, Navigation, Send, X } from "lucide-react";
+import { ArrowLeft, Calendar, Check, Clock, Crosshair, Flag, MapPin, Navigation, Send, Wallet, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
@@ -36,6 +36,86 @@ function canStillCancel(m: ChatMessage) {
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Endereço sem o ", Brasil" do fim (só atrapalha na leitura).
+function shortAddress(label: string) {
+  return label.replace(/,\s*Brasil\s*$/i, "").trim();
+}
+
+// Pedido de corrida arrumado em linhas: embarque, destino, quando e valor (o valor vem na última linha do texto).
+const distanceCache = new Map<string, number>();
+
+function RideRequestCard({ m, perKm }: { m: ChatMessage; perKm?: number }) {
+  const when = new Date(m.requested_at ?? m.created_at);
+  // Pedidos novos trazem o valor no texto; os antigos (e os sem valor) são calculados na hora com a rota e a tarifa do motorista.
+  const textPrice = m.body.match(/Valor estimado:\s*(R\$[^\n]+)/)?.[1]?.trim();
+  const [km, setKm] = useState<number | null>(null);
+  useEffect(() => {
+    if (textPrice || m.origin_lat == null || m.origin_lng == null || m.destination_lat == null || m.destination_lng == null) return;
+    const key = `${m.origin_lat},${m.origin_lng};${m.destination_lat},${m.destination_lng}`;
+    const cached = distanceCache.get(key);
+    if (cached !== undefined) {
+      setKm(cached);
+      return;
+    }
+    let alive = true;
+    routeDistance({ lat: m.origin_lat, lng: m.origin_lng }, { lat: m.destination_lat, lng: m.destination_lng })
+      .then((r) => {
+        distanceCache.set(key, r.distance_km);
+        if (alive) setKm(r.distance_km);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [textPrice, m.origin_lat, m.origin_lng, m.destination_lat, m.destination_lng]);
+  const price =
+    textPrice ?? (km != null && perKm && perKm > 0 ? formatMoney(rideFareDetail(km, perKm, when).total) : undefined);
+  const dateLabel = when.toLocaleDateString("pt-BR");
+  const timeLabel = when.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const box = "rounded-xl bg-black/25 px-3 py-2";
+  const tag = "mb-0.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide opacity-80";
+  const value = "text-[13px] font-semibold leading-snug text-foreground";
+  return (
+    <div className="space-y-2">
+      <p className="font-semibold">Oi, você pode me buscar?</p>
+      <div className={box}>
+        <p className={tag}>
+          <MapPin size={11} /> Embarque
+        </p>
+        <p className={value}>{shortAddress(m.origin_label ?? "")}</p>
+      </div>
+      <div className={box}>
+        <p className={tag}>
+          <Flag size={11} /> Destino
+        </p>
+        <p className={value}>{shortAddress(m.destination_label ?? "")}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className={box}>
+          <p className={tag}>
+            <Calendar size={11} /> Data
+          </p>
+          <p className={value}>{dateLabel}</p>
+        </div>
+        <div className={box}>
+          <p className={tag}>
+            <Clock size={11} /> Horário
+          </p>
+          <p className={value}>{timeLabel}</p>
+        </div>
+      </div>
+      {price && (
+        <div className="flex items-center justify-between rounded-xl bg-black/25 px-3 py-2.5">
+          <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide opacity-80">
+            <Wallet size={12} /> Valor
+          </p>
+          <p className="text-lg font-extrabold">{price}</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Data de HOJE no relógio do celular (YYYY-MM-DD). Não pode ser
@@ -312,7 +392,8 @@ export function Chat() {
       const when = new Date(`${rideDate}T${rideTime}`);
       const dateLabel = when.toLocaleDateString("pt-BR");
       const timeLabel = when.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const body = `Você pode me buscar em ${origin.trim()} e me levar em ${destination.trim()} no dia ${dateLabel} às ${timeLabel}?`;
+      const priceLine = fare ? `\nValor estimado: ${formatMoney(fare.total)}` : "";
+      const body = `Você pode me buscar em ${origin.trim()} e me levar em ${destination.trim()} no dia ${dateLabel} às ${timeLabel}?${priceLine}`;
       const rideRequest: RideRequestDetails = {
         originLabel: selectedOrigin.label,
         originLat: selectedOrigin.lat,
@@ -405,7 +486,11 @@ export function Chat() {
                       : "card-elevated"
                 }`}
               >
-                <p>{m.body}</p>
+                {isRideEvent && m.origin_label && m.destination_label ? (
+                  <RideRequestCard m={m} perKm={profile?.per_km} />
+                ) : (
+                  <p className="whitespace-pre-line">{m.body}</p>
+                )}
                 {isRideEvent && (
                   <p className="mt-1 flex items-center gap-1 text-[10px] font-bold uppercase opacity-90">
                     {m.cancelled_at ? (

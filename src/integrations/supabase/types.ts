@@ -144,6 +144,11 @@ export type Database = {
         Args: { p_code: string };
         Returns: { first_name: string }[];
       };
+      // Código de convite (QR) do motorista, SÓ para passageiro já ligado a ele (precisa de login). Zero linhas = sem acesso.
+      driver_share_code: {
+        Args: { p_driver_id: string };
+        Returns: { pairing_code: string }[];
+      };
       // Página de convite avisa o banco que "alguém nesta rede abriu o convite X" (pode ser chamada sem login).
       record_invite_click: {
         Args: { p_code: string; p_screen?: string | null };
