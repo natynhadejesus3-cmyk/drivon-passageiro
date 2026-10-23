@@ -1,4 +1,4 @@
-import { ArrowLeft, Copy, Share2 } from "lucide-react";
+import { ArrowLeft, Copy, MessageCircle, Phone, Share2, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -6,8 +6,8 @@ import { DriverAvatar } from "../components/DriverAvatar";
 import { VehicleBadges } from "../components/VehicleBadges";
 import { formatLastSeen } from "@/lib/format";
 import { useDriverProfile, useLink } from "@/lib/hooks";
-import { getCachedDriverName, getDriverShareCode } from "@/lib/repository";
-import { driverFirstName, driverShareMessage, driverShareUrl } from "@/lib/share-driver";
+import { getCachedDriverName, getDriverContactPhone, getDriverShareCode } from "@/lib/repository";
+import { driverFirstName, driverShareMessage, driverShareUrl, formatPhone, telUrl, whatsappUrl } from "@/lib/share-driver";
 
 /** Perfil do motorista (toque nele dentro da conversa): dados dele e o QR para mostrar a um amigo. */
 export function DriverProfile() {
@@ -19,6 +19,17 @@ export function DriverProfile() {
   const [code, setCode] = useState<string | null>(null);
   const [codeLoading, setCodeLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
+
+  useEffect(() => {
+    if (!driverId) return;
+    let alive = true;
+    getDriverContactPhone(driverId).then((p) => alive && setPhone(p));
+    return () => {
+      alive = false;
+    };
+  }, [driverId]);
 
   useEffect(() => {
     if (!driverId) return;
@@ -48,6 +59,8 @@ export function DriverProfile() {
   const online = !!profile?.is_online;
   const url = driverShareUrl(code);
   const message = url ? driverShareMessage(name, url) : "";
+  const waUrl = whatsappUrl(phone);
+  const callUrl = telUrl(phone);
 
   async function share() {
     if (!url) return;
@@ -83,7 +96,14 @@ export function DriverProfile() {
       </header>
 
       <div className="flex flex-col items-center px-6 pb-8 pt-6 text-center">
-        <DriverAvatar name={name} avatarUrl={profile?.avatar_url} online={online} size={96} />
+        {/* Tocar na foto abre ela grande. */}
+        <button
+          onClick={() => profile?.avatar_url && setPhotoOpen(true)}
+          aria-label="Ver foto do motorista"
+          className="rounded-full"
+        >
+          <DriverAvatar name={name} avatarUrl={profile?.avatar_url} online={online} size={96} />
+        </button>
         <p className="mt-3 text-title">{name}</p>
         <div className="mt-2">
           <VehicleBadges vehicles={profile?.vehicle_types} size="md" />
@@ -92,7 +112,30 @@ export function DriverProfile() {
           {online ? <span className="font-semibold text-success">Online agora</span> : formatLastSeen(profile?.last_seen_at)}
         </p>
 
-        <div className="mt-8 w-full max-w-sm rounded-3xl border border-[color:var(--color-hairline)] bg-card-elevated p-5">
+        {waUrl && (
+          <div className="mt-6 w-full max-w-sm rounded-3xl border border-[color:var(--color-hairline)] bg-card-elevated p-5">
+            <p className="font-bold">Contato</p>
+            <p className="mt-1 text-lg font-semibold">{formatPhone(phone)}</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-success font-bold text-white"
+              >
+                <MessageCircle size={18} /> WhatsApp
+              </a>
+              <a
+                href={callUrl ?? undefined}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--color-hairline)] font-semibold"
+              >
+                <Phone size={16} /> Ligar
+              </a>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 w-full max-w-sm rounded-3xl border border-[color:var(--color-hairline)] bg-card-elevated p-5">
           <p className="font-bold">Compartilhar {driverFirstName(name)}</p>
           <p className="mt-1 text-label">
             Quem escanear baixa o app (se ainda não tiver) e já entra com este motorista, sem você passar o QR de novo.
@@ -124,6 +167,23 @@ export function DriverProfile() {
           )}
         </div>
       </div>
+      {photoOpen && profile?.avatar_url && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setPhotoOpen(false)}
+          role="dialog"
+          aria-label="Foto do motorista"
+        >
+          <button
+            onClick={() => setPhotoOpen(false)}
+            aria-label="Fechar"
+            className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-white"
+          >
+            <X size={20} />
+          </button>
+          <img src={profile.avatar_url} alt={name} className="max-h-full max-w-full rounded-2xl object-contain" />
+        </div>
+      )}
     </div>
   );
 }

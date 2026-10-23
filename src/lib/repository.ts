@@ -294,6 +294,21 @@ export async function getDriverPublicProfile(driverId: string): Promise<DriverPu
   return data;
 }
 
+/**
+ * Telefone que o motorista escolheu mostrar (perfil > "Mostrar meu WhatsApp"). Null = ele não quis divulgar,
+ * ou o banco ainda não tem a coluna (busca separada de propósito: nunca atrapalha o resto do perfil).
+ */
+export async function getDriverContactPhone(driverId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("driver_public_profile")
+    .select("contact_phone")
+    .eq("driver_id", driverId)
+    .maybeSingle();
+  if (error) return null;
+  const phone = (data as { contact_phone?: string | null } | null)?.contact_phone;
+  return phone?.trim() ? phone.trim() : null;
+}
+
 export async function getMyPassengerProfile(userId: string): Promise<PassengerProfile | null> {
   const { data, error } = await supabase.from("passenger_profiles").select("*").eq("id", userId).maybeSingle();
   if (error) throw error;

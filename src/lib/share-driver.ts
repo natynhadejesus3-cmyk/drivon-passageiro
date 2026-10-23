@@ -19,6 +19,37 @@ export function driverShareUrl(code: string | null | undefined): string | null {
   return valid ? buildInviteUrl(valid) : null;
 }
 
+/** Só os dígitos do telefone, já com o 55 do Brasil quando vier sem (10 ou 11 dígitos). Null se não parecer um telefone. */
+export function phoneDigits(phone: string | null | undefined): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "").replace(/^0+/, "");
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+  return null;
+}
+
+/** Link que abre a conversa no WhatsApp com o motorista. */
+export function whatsappUrl(phone: string | null | undefined): string | null {
+  const d = phoneDigits(phone);
+  return d ? `https://wa.me/${d}` : null;
+}
+
+/** Link que abre a ligação. */
+export function telUrl(phone: string | null | undefined): string | null {
+  const d = phoneDigits(phone);
+  return d ? `tel:+${d}` : null;
+}
+
+/** "(74) 99999-8888" para mostrar na tela; se não der para formatar, devolve como veio. */
+export function formatPhone(phone: string | null | undefined): string {
+  const d = phoneDigits(phone);
+  if (!d) return (phone ?? "").trim();
+  const local = d.slice(2);
+  const ddd = local.slice(0, 2);
+  const rest = local.slice(2);
+  const cut = rest.length === 9 ? 5 : 4;
+  return `(${ddd}) ${rest.slice(0, cut)}-${rest.slice(cut)}`;
+}
+
 /** Mensagem pronta para mandar por WhatsApp etc. */
 export function driverShareMessage(name: string | null | undefined, url: string): string {
   const who = driverFirstName(name);
